@@ -54,7 +54,7 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
             return null;
 
         // Now, transform all such methods
-        ClassWriter cw = new ClassWriter(cr, 0 | (atLeastJava7() ? ClassWriter.COMPUTE_FRAMES : 0));
+        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS | (atLeastJava7() ? ClassWriter.COMPUTE_FRAMES : 0));
         cr.accept(new ClassVisitor(ASM5, cw) {
             public MethodVisitor visitMethod(final int access, String name, final String desc, String signature, String[] exceptions) {
                 final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
@@ -83,7 +83,7 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                             mv.visitMethodInsn(INVOKESTATIC, "org/lwjgl/system/MemoryStack", "stackPop", "()Lorg/lwjgl/system/MemoryStack;", false);
                             mv.visitInsn(POP);
                         }
-                        super.visitInsn(opcode);
+                        mv.visitInsn(opcode);
                     }
 
                     public void visitCode() {
