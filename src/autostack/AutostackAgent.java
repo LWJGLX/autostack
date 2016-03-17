@@ -13,6 +13,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.TryCatchBlockSorter;
 
 public class AutostackAgent implements Opcodes, ClassFileTransformer {
@@ -55,25 +56,50 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
         // Now, transform all such methods
         ClassWriter cw = new ClassWriter(cr, 0 | (atLeastJava7() ? ClassWriter.COMPUTE_FRAMES : 0));
         cr.accept(new ClassVisitor(ASM5, cw) {
-            public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+            public MethodVisitor visitMethod(final int access, String name, final String desc, String signature, String[] exceptions) {
                 final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
                 if (!stackMethods.contains(name + desc))
                     return mv;
                 MethodVisitor tcbs = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
+                int var = ((access & ACC_STATIC) == ACC_STATIC ? 0 : 1);
+                Type[] paramTypes = Type.getArgumentTypes(desc);
+                for (int i = 0; i < paramTypes.length; i++) {
+                    Type t = paramTypes[i];
+                    var += t.getSize();
+                }
+                final int firstFreeVar = var;
                 MethodVisitor own = new MethodVisitor(ASM5, tcbs) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
+                    int freeVar = firstFreeVar;
+
+                    public void visitVarInsn(int opcode, int var) {
+                        freeVar = Math.max(freeVar, var + 1);
+                        mv.visitVarInsn(opcode, var);
+                    }
+
+                    public void visitInsn(int opcode) {
+                        if (opcode >= IRETURN && opcode <= RETURN) {
+                            mv.visitMethodInsn(INVOKESTATIC, "org/lwjgl/system/MemoryStack", "stackPop", "()Lorg/lwjgl/system/MemoryStack;", false);
+                            mv.visitInsn(POP);
+                        }
+                        super.visitInsn(opcode);
+                    }
 
                     public void visitCode() {
                         mv.visitCode();
                         mv.visitMethodInsn(INVOKESTATIC, "org/lwjgl/system/MemoryStack", "stackPush", "()Lorg/lwjgl/system/MemoryStack;", false);
+                        mv.visitInsn(POP);
                         mv.visitLabel(tryLabel);
                     }
 
                     public void visitEnd() {
                         mv.visitLabel(finallyLabel);
+                        mv.visitVarInsn(ASTORE, freeVar);
                         mv.visitMethodInsn(INVOKESTATIC, "org/lwjgl/system/MemoryStack", "stackPop", "()Lorg/lwjgl/system/MemoryStack;", false);
-                        mv.visitInsn(RETURN);
+                        mv.visitInsn(POP);
+                        mv.visitVarInsn(ALOAD, freeVar);
+                        mv.visitInsn(ATHROW);
                         mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, "java/lang/Exception");
                         mv.visitEnd();
                     }
