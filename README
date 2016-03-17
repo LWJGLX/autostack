@@ -2,3 +2,6 @@ Start the JVM with the following JVM argument:
 
   -javaagent:<path-to>/autostack.jar
 
+To improve loading time, specify a package/class prefix containing the classes to transform:
+
+  -javaagent:<path-to>/autostack.jar=my.package
