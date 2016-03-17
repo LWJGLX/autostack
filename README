@@ -1,4 +1,4 @@
-Start the JVM to be profiled with JVM argument:
+Start the JVM with the following JVM argument:
 
   -javaagent:<path-to>/autostack.jar
 
