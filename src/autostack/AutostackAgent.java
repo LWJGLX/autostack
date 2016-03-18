@@ -30,7 +30,9 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
 
     public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer)
             throws IllegalClassFormatException {
-        if (className == null || className.startsWith("java/")
+        if (className == null
+        		|| className.startsWith("java/")
+        		|| className.startsWith("sun/")
                 || className.startsWith("org/lwjgl/vulkan/")
                 || className.startsWith("org/lwjgl/system/")
                 || !className.startsWith(packageClassPrefix))
