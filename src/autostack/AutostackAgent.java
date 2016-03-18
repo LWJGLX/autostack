@@ -18,7 +18,7 @@ import org.objectweb.asm.commons.TryCatchBlockSorter;
 public class AutostackAgent implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
     private static final String STACK = "autostack/Stack";
-
+    private static final boolean AT_LEAST_JAVA7 = atLeastJava7();
     private static boolean atLeastJava7() {
         String propValue = System.getProperty("java.class.version");
         return propValue.startsWith("52.") || propValue.startsWith("51.");
@@ -77,7 +77,7 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
             return null;
 
         // Now, transform all such methods
-        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS | (atLeastJava7() ? ClassWriter.COMPUTE_FRAMES : 0));
+        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS | (AT_LEAST_JAVA7 ? ClassWriter.COMPUTE_FRAMES : 0));
         cr.accept(new ClassVisitor(ASM5, cw) {
             public MethodVisitor visitMethod(final int access, String name, final String desc, String signature, String[] exceptions) {
                 final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
