@@ -4,8 +4,8 @@ import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -24,31 +24,37 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
     private static String packageClassPrefix;
 
     public static void premain(String agentArguments, Instrumentation instrumentation) {
-    	packageClassPrefix = agentArguments == null ? "" : agentArguments.replace('.', '/');
+        packageClassPrefix = agentArguments == null ? "" : agentArguments.replace('.', '/');
         instrumentation.addTransformer(new AutostackAgent());
     }
 
     public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer)
             throws IllegalClassFormatException {
         if (className == null
-        		|| className.startsWith("java/")
-        		|| className.startsWith("sun/")
+                || className.startsWith("java/")
+                || className.startsWith("sun/")
                 || className.startsWith("org/lwjgl/vulkan/")
                 || className.startsWith("org/lwjgl/system/")
                 || !className.startsWith(packageClassPrefix))
             return null;
         ClassReader cr = new ClassReader(classfileBuffer);
-        final Set<String> stackMethods = new HashSet<String>();
+        final Map<String, Integer> stackMethods = new HashMap<String, Integer>();
         // Scan all methods that need auto-stack
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
+                    boolean mark;
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && owner.startsWith("org/lwjgl/") && (
                                 name.equals("mallocStack") ||
                                 name.equals("stackGet") ||
                                 name.equals("callocStack")) && !itf) {
-                            stackMethods.add(methodName + methodDesc);
+                            mark = true;
+                        }
+                    }
+                    public void visitMaxs(int maxStack, int maxLocals) {
+                        if (mark) {
+                            stackMethods.put(methodName + methodDesc, maxLocals);
                         }
                     }
                 };
@@ -63,7 +69,8 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
         cr.accept(new ClassVisitor(ASM5, cw) {
             public MethodVisitor visitMethod(final int access, String name, final String desc, String signature, String[] exceptions) {
                 final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                if (!stackMethods.contains(name + desc))
+                final Integer stackVar = stackMethods.get(name + desc);
+                if (stackVar == null)
                     return mv;
                 MethodVisitor tcbs = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 MethodVisitor own = new MethodVisitor(ASM5, tcbs) {
@@ -78,10 +85,22 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                         mv.visitInsn(opcode);
                     }
 
+                    public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+                        if (opcode == INVOKESTATIC && owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
+                            String newName = name.substring(0, 6);
+                            mv.visitVarInsn(ALOAD, stackVar.intValue());
+                            if (desc.startsWith("(I"))
+                                mv.visitInsn(SWAP);
+                            mv.visitMethodInsn(opcode, owner, newName, "(Lorg/lwjgl/system/MemoryStack;" + desc.substring(1), false);
+                            return;
+                        }
+                        mv.visitMethodInsn(opcode, owner, name, desc, itf);
+                    }
+
                     public void visitCode() {
                         mv.visitCode();
                         mv.visitMethodInsn(INVOKESTATIC, "org/lwjgl/system/MemoryStack", "stackPush", "()Lorg/lwjgl/system/MemoryStack;", false);
-                        mv.visitInsn(POP);
+                        mv.visitVarInsn(ASTORE, stackVar.intValue());
                         mv.visitLabel(tryLabel);
                     }
 
