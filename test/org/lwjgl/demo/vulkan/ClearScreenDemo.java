@@ -112,7 +112,7 @@ public class ClearScreenDemo {
         //
         // We also add the debug extension so that validation layers and other things can send log messages to us.
         ByteBuffer VK_EXT_DEBUG_REPORT_EXTENSION = memEncodeASCII(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, BufferAllocator.MALLOC);
-        PointerBuffer ppEnabledExtensionNames = stackMallocPointer(requiredExtensions.remaining() + 1);
+        PointerBuffer ppEnabledExtensionNames = mallocStackPointer(requiredExtensions.remaining() + 1);
         ppEnabledExtensionNames.put(requiredExtensions) // <- platform-dependent required extensions
                                .put(VK_EXT_DEBUG_REPORT_EXTENSION) // <- the debug extensions
                                .flip();
@@ -120,7 +120,7 @@ public class ClearScreenDemo {
         // Now comes the validation layers. These layers sit between our application (the Vulkan client) and the
         // Vulkan driver. Those layers will check whether we make any mistakes in using the Vulkan API and yell
         // at us via the debug extension.
-        PointerBuffer ppEnabledLayerNames = stackMallocPointer(layers.length);
+        PointerBuffer ppEnabledLayerNames = mallocStackPointer(layers.length);
         for (int i = 0; validation && i < layers.length; i++)
             ppEnabledLayerNames.put(layers[i]);
         ppEnabledLayerNames.flip();
@@ -135,7 +135,7 @@ public class ClearScreenDemo {
                 .pApplicationInfo(appInfo) // <- the application info we created above
                 .ppEnabledExtensionNames(ppEnabledExtensionNames) // <- and the extension names themselves
                 .ppEnabledLayerNames(ppEnabledLayerNames); // <- and the layer names themselves
-        PointerBuffer pInstance = stackMallocPointer(1); // <- create a PointerBuffer which will hold the handle to the created VkInstance
+        PointerBuffer pInstance = mallocStackPointer(1); // <- create a PointerBuffer which will hold the handle to the created VkInstance
         int err = vkCreateInstance(pCreateInfo, null, pInstance); // <- actually create the VkInstance now!
         long instance = pInstance.get(0); // <- get the VkInstance handle
         // One word about freeing memory:
@@ -166,7 +166,7 @@ public class ClearScreenDemo {
                 .pfnCallback(callback) // <- the actual function pointer (in LWJGL a Closure)
                 .pUserData(NULL) // <- any user data provided to the debug report callback function
                 .flags(flags); // <- indicates which kind of messages we want to receive
-        LongBuffer pCallback = stackMallocLong(1); // <- allocate a LongBuffer (for a non-dispatchable handle)
+        LongBuffer pCallback = mallocStackLong(1); // <- allocate a LongBuffer (for a non-dispatchable handle)
         // Actually create the debug report callback
         int err = vkCreateDebugReportCallbackEXT(instance, dbgCreateInfo, null, pCallback);
         long callbackHandle = pCallback.get(0);
@@ -181,12 +181,12 @@ public class ClearScreenDemo {
      * the first one. 
      */
     private static VkPhysicalDevice getFirstPhysicalDevice(VkInstance instance) {
-        IntBuffer pPhysicalDeviceCount = stackMallocInt(1);
+        IntBuffer pPhysicalDeviceCount = mallocStackInt(1);
         int err = vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, null);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get number of physical devices: " + translateVulkanResult(err));
         }
-        PointerBuffer pPhysicalDevices = stackMallocPointer(pPhysicalDeviceCount.get(0));
+        PointerBuffer pPhysicalDevices = mallocStackPointer(pPhysicalDeviceCount.get(0));
         err = vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices);
         long physicalDevice = pPhysicalDevices.get(0);
         if (err != VK_SUCCESS) {
@@ -201,7 +201,7 @@ public class ClearScreenDemo {
     }
 
     private static DeviceAndGraphicsQueueFamily createDeviceAndGetGraphicsQueueFamily(VkPhysicalDevice physicalDevice) {
-        IntBuffer pQueueFamilyPropertyCount = stackMallocInt(1);
+        IntBuffer pQueueFamilyPropertyCount = mallocStackInt(1);
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, pQueueFamilyPropertyCount, null);
         int queueCount = pQueueFamilyPropertyCount.get(0);
         VkQueueFamilyProperties.Buffer queueProps = VkQueueFamilyProperties.callocStack(queueCount);
@@ -211,18 +211,18 @@ public class ClearScreenDemo {
             if ((queueProps.get(graphicsQueueFamilyIndex).queueFlags() & VK_QUEUE_GRAPHICS_BIT) != 0)
                 break;
         }
-        FloatBuffer pQueuePriorities = stackMallocFloat(1).put(0.0f);
+        FloatBuffer pQueuePriorities = mallocStackFloat(1).put(0.0f);
         pQueuePriorities.flip();
         VkDeviceQueueCreateInfo.Buffer queueCreateInfo = VkDeviceQueueCreateInfo.callocStack(1)
                 .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
                 .queueFamilyIndex(graphicsQueueFamilyIndex)
                 .pQueuePriorities(pQueuePriorities);
 
-        PointerBuffer extensions = stackMallocPointer(1);
+        PointerBuffer extensions = mallocStackPointer(1);
         ByteBuffer VK_KHR_SWAPCHAIN_EXTENSION = memEncodeASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME, BufferAllocator.MALLOC);
         extensions.put(VK_KHR_SWAPCHAIN_EXTENSION);
         extensions.flip();
-        PointerBuffer ppEnabledLayerNames = stackMallocPointer(layers.length);
+        PointerBuffer ppEnabledLayerNames = mallocStackPointer(layers.length);
         for (int i = 0; validation && i < layers.length; i++)
             ppEnabledLayerNames.put(layers[i]);
         ppEnabledLayerNames.flip();
@@ -234,7 +234,7 @@ public class ClearScreenDemo {
                 .ppEnabledExtensionNames(extensions)
                 .ppEnabledLayerNames(ppEnabledLayerNames);
 
-        PointerBuffer pDevice = stackMallocPointer(1);
+        PointerBuffer pDevice = mallocStackPointer(1);
         int err = vkCreateDevice(physicalDevice, deviceCreateInfo, null, pDevice);
         long device = pDevice.get(0);
         if (err != VK_SUCCESS) {
@@ -255,14 +255,14 @@ public class ClearScreenDemo {
     }
 
     private static ColorFormatAndSpace getColorFormatAndSpace(VkPhysicalDevice physicalDevice, long surface) {
-        IntBuffer pQueueFamilyPropertyCount = stackMallocInt(1);
+        IntBuffer pQueueFamilyPropertyCount = mallocStackInt(1);
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, pQueueFamilyPropertyCount, null);
         int queueCount = pQueueFamilyPropertyCount.get(0);
         VkQueueFamilyProperties.Buffer queueProps = VkQueueFamilyProperties.callocStack(queueCount);
         vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, pQueueFamilyPropertyCount, queueProps);
 
         // Iterate over each queue to learn whether it supports presenting:
-        IntBuffer supportsPresent = stackMallocInt(queueCount);
+        IntBuffer supportsPresent = mallocStackInt(queueCount);
         for (int i = 0; i < queueCount; i++) {
             supportsPresent.position(i);
             int err = vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, supportsPresent);
@@ -308,7 +308,7 @@ public class ClearScreenDemo {
         }
 
         // Get list of supported formats
-        IntBuffer pFormatCount = stackMallocInt(1);
+        IntBuffer pFormatCount = mallocStackInt(1);
         int err = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, pFormatCount, null);
         int formatCount = pFormatCount.get(0);
         if (err != VK_SUCCESS) {
@@ -342,7 +342,7 @@ public class ClearScreenDemo {
                 .sType(VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO)
                 .queueFamilyIndex(queueNodeIndex)
                 .flags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-        LongBuffer pCmdPool = stackMallocLong(1);
+        LongBuffer pCmdPool = mallocStackLong(1);
         int err = vkCreateCommandPool(device, cmdPoolInfo, null, pCmdPool);
         long commandPool = pCmdPool.get(0);
         if (err != VK_SUCCESS) {
@@ -352,7 +352,7 @@ public class ClearScreenDemo {
     }
 
     private static VkQueue createDeviceQueue(VkDevice device, int queueFamilyIndex) {
-        PointerBuffer pQueue = stackMallocPointer(1);
+        PointerBuffer pQueue = mallocStackPointer(1);
         vkGetDeviceQueue(device, queueFamilyIndex, 0, pQueue);
         long queue = pQueue.get(0);
         return new VkQueue(queue, device);
@@ -364,7 +364,7 @@ public class ClearScreenDemo {
                 .commandPool(commandPool)
                 .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
                 .commandBufferCount(1);
-        PointerBuffer pCommandBuffer = stackMallocPointer(1);
+        PointerBuffer pCommandBuffer = mallocStackPointer(1);
         int err = vkAllocateCommandBuffers(device, cmdBufAllocateInfo, pCommandBuffer);
         long commandBuffer = pCommandBuffer.get(0);
         if (err != VK_SUCCESS) {
@@ -479,14 +479,14 @@ public class ClearScreenDemo {
             throw new AssertionError("Failed to get physical device surface capabilities: " + translateVulkanResult(err));
         }
 
-        IntBuffer pPresentModeCount = stackMallocInt(1);
+        IntBuffer pPresentModeCount = mallocStackInt(1);
         err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, pPresentModeCount, null);
         int presentModeCount = pPresentModeCount.get(0);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get number of physical device surface presentation modes: " + translateVulkanResult(err));
         }
 
-        IntBuffer pPresentModes = stackMallocInt(presentModeCount);
+        IntBuffer pPresentModes = mallocStackInt(presentModeCount);
         err = vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, pPresentModeCount, pPresentModes);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get physical device surface presentation modes: " + translateVulkanResult(err));
@@ -536,7 +536,7 @@ public class ClearScreenDemo {
         swapchainCI.imageExtent()
                 .width(width)
                 .height(height);
-        LongBuffer pSwapChain = stackMallocLong(1);
+        LongBuffer pSwapChain = mallocStackLong(1);
         err = vkCreateSwapchainKHR(device, swapchainCI, null, pSwapChain);
         long swapChain = pSwapChain.get(0);
         if (err != VK_SUCCESS) {
@@ -549,14 +549,14 @@ public class ClearScreenDemo {
             vkDestroySwapchainKHR(device, oldSwapChain, null);
         }
 
-        IntBuffer pImageCount = stackMallocInt(1);
+        IntBuffer pImageCount = mallocStackInt(1);
         err = vkGetSwapchainImagesKHR(device, swapChain, pImageCount, null);
         int imageCount = pImageCount.get(0);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get number of swapchain images: " + translateVulkanResult(err));
         }
 
-        LongBuffer pSwapchainImages = stackMallocLong(imageCount);
+        LongBuffer pSwapchainImages = mallocStackLong(imageCount);
         err = vkGetSwapchainImagesKHR(device, swapChain, pImageCount, pSwapchainImages);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get swapchain images: " + translateVulkanResult(err));
@@ -564,7 +564,7 @@ public class ClearScreenDemo {
 
         long[] images = new long[imageCount];
         long[] imageViews = new long[imageCount];
-        LongBuffer pBufferView = stackMallocLong(1);
+        LongBuffer pBufferView = mallocStackLong(1);
         VkImageViewCreateInfo colorAttachmentView = VkImageViewCreateInfo.callocStack()
                 .sType(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
                 .pNext(NULL)
@@ -633,7 +633,7 @@ public class ClearScreenDemo {
                 .pSubpasses(subpass)
                 .pDependencies(null);
 
-        LongBuffer pRenderPass = stackMallocLong(1);
+        LongBuffer pRenderPass = mallocStackLong(1);
         int err = vkCreateRenderPass(device, renderPassInfo, null, pRenderPass);
         long renderPass = pRenderPass.get(0);
         if (err != VK_SUCCESS) {
@@ -643,7 +643,7 @@ public class ClearScreenDemo {
     }
 
     private static long[] createFramebuffers(VkDevice device, Swapchain swapchain, long renderPass, int width, int height) {
-        LongBuffer attachments = stackMallocLong(1);
+        LongBuffer attachments = mallocStackLong(1);
         VkFramebufferCreateInfo fci = VkFramebufferCreateInfo.callocStack()
                 .sType(VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO)
                 .pAttachments(attachments)
@@ -655,7 +655,7 @@ public class ClearScreenDemo {
                 .renderPass(renderPass);
         // Create a framebuffer for each swapchain image
         long[] framebuffers = new long[swapchain.images.length];
-        LongBuffer pFramebuffer = stackMallocLong(1);
+        LongBuffer pFramebuffer = mallocStackLong(1);
         for (int i = 0; i < swapchain.images.length; i++) {
             attachments.put(0, swapchain.imageViews[i]);
             int err = vkCreateFramebuffer(device, fci, null, pFramebuffer);
@@ -673,7 +673,7 @@ public class ClearScreenDemo {
             return;
         VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
                 .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO);
-        PointerBuffer pCommandBuffers = stackMallocPointer(1)
+        PointerBuffer pCommandBuffers = mallocStackPointer(1)
                 .put(commandBuffer)
                 .flip();
         submitInfo.pCommandBuffers(pCommandBuffers);
@@ -690,7 +690,7 @@ public class ClearScreenDemo {
                 .commandPool(commandPool)
                 .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
                 .commandBufferCount(framebuffers.length);
-        PointerBuffer pCommandBuffer = stackMallocPointer(framebuffers.length);
+        PointerBuffer pCommandBuffer = mallocStackPointer(framebuffers.length);
         int err = vkAllocateCommandBuffers(device, cmdBufAllocateInfo, pCommandBuffer);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to allocate render command buffer: " + translateVulkanResult(err));
@@ -969,12 +969,12 @@ public class ClearScreenDemo {
 
         // Pre-allocate everything needed in the render loop
 
-        IntBuffer pImageIndex = stackMallocInt(1);
+        IntBuffer pImageIndex = mallocStackInt(1);
         int currentBuffer = 0;
-        PointerBuffer pCommandBuffers = stackMallocPointer(1);
-        LongBuffer pSwapchains = stackMallocLong(1);
-        LongBuffer pImageAcquiredSemaphore = stackMallocLong(1);
-        LongBuffer pRenderCompleteSemaphore = stackMallocLong(1);
+        PointerBuffer pCommandBuffers = mallocStackPointer(1);
+        LongBuffer pSwapchains = mallocStackLong(1);
+        LongBuffer pImageAcquiredSemaphore = mallocStackLong(1);
+        LongBuffer pRenderCompleteSemaphore = mallocStackLong(1);
 
         // Info struct to create a semaphore
         VkSemaphoreCreateInfo semaphoreCreateInfo = VkSemaphoreCreateInfo.callocStack()
@@ -983,7 +983,7 @@ public class ClearScreenDemo {
                 .flags(VK_FLAGS_NONE);
 
         // Info struct to submit a command buffer which will wait on the semaphore
-        IntBuffer pWaitDstStageMask = stackMallocInt(1);
+        IntBuffer pWaitDstStageMask = mallocStackInt(1);
         pWaitDstStageMask.put(0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         VkSubmitInfo submitInfo = VkSubmitInfo.callocStack()
                 .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)

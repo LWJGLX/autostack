@@ -50,10 +50,18 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                                     name.equals("stackGet") ||
                                     name.equals("callocStack"))
                                 ) || (owner.equals(STACK) &&
-                                        (name.equals("stackMallocInt") ||
-                                         name.equals("stackMallocLong") ||
-                                         name.equals("stackMallocFloat") ||
-                                         name.equals("stackMallocPointer")))
+                                        (name.equals("mallocStack") ||
+                                         name.equals("mallocStackInt") ||
+                                         name.equals("mallocStackLong") ||
+                                         name.equals("mallocStackFloat") ||
+                                         name.equals("mallocStackDouble") ||
+                                         name.equals("mallocStackPointer") ||
+                                         name.equals("callocStack") ||
+                                         name.equals("callocStackInt") ||
+                                         name.equals("callocStackLong") ||
+                                         name.equals("callocStackFloat") ||
+                                         name.equals("callocStackDouble") ||
+                                         name.equals("callocStackPointer")))
                             ) {
                             mark = true;
                         }
@@ -103,15 +111,19 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                         } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
                             mv.visitVarInsn(ALOAD, stackVar.intValue());
                         } else if (opcode == INVOKESTATIC && owner.equals(STACK) &&
-                                (name.equals("stackMallocInt") ||
-                                 name.equals("stackMallocLong") ||
-                                 name.equals("stackMallocFloat") ||
-                                 name.equals("stackMallocPointer") ||
-                                 name.equals("stackCallocInt") ||
-                                 name.equals("stackCallocLong") ||
-                                 name.equals("stackCallocFloat") ||
-                                 name.equals("stackCallocPointer"))) {
-                            String newName = name.substring(5, 6).toLowerCase() + name.substring(6);
+                                (name.equals("mallocStack") ||
+                                 name.equals("mallocStackInt") ||
+                                 name.equals("mallocStackLong") ||
+                                 name.equals("mallocStackFloat") ||
+                                 name.equals("mallocStackDouble") ||
+                                 name.equals("mallocStackPointer") ||
+                                 name.equals("callocStack") ||
+                                 name.equals("callocStackInt") ||
+                                 name.equals("callocStackLong") ||
+                                 name.equals("callocStackFloat") ||
+                                 name.equals("callocStackDouble") ||
+                                 name.equals("callocStackPointer"))) {
+                            String newName = name.substring(0, 6) + name.substring(11);
                             mv.visitVarInsn(ALOAD, stackVar.intValue());
                             mv.visitInsn(SWAP);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);

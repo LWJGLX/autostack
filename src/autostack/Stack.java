@@ -1,49 +1,82 @@
 package autostack;
 
+import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.nio.ShortBuffer;
 
 import org.lwjgl.PointerBuffer;
 
 public class Stack {
 
-    public static IntBuffer stackMallocInt(int size) {
+    public static ByteBuffer mallocStack(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
 
-    public static PointerBuffer stackMallocPointer(int size) {
+    public static ShortBuffer mallocStackShort(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
 
-    public static LongBuffer stackMallocLong(int size) {
+    public static IntBuffer mallocStackInt(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
 
-    public static FloatBuffer stackMallocFloat(int size) {
+    public static PointerBuffer mallocStackPointer(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
 
-    public static IntBuffer stackCallocInt(int size) {
+    public static LongBuffer mallocStackLong(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
 
-    public static PointerBuffer stackCallocPointer(int size) {
+    public static FloatBuffer mallocStackFloat(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
 
-    public static LongBuffer stackCallocLong(int size) {
+    public static DoubleBuffer mallocStackDouble(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
 
-    public static FloatBuffer stackCallocFloat(int size) {
+    public static ByteBuffer callocStack(int size) {
+        /* Will be transformed anyway */
+        throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
+    }
+
+    public static ShortBuffer callocStackShort(int size) {
+        /* Will be transformed anyway */
+        throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
+    }
+
+    public static IntBuffer callocStackInt(int size) {
+        /* Will be transformed anyway */
+        throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
+    }
+
+    public static PointerBuffer callocStackPointer(int size) {
+        /* Will be transformed anyway */
+        throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
+    }
+
+    public static LongBuffer callocStackLong(int size) {
+        /* Will be transformed anyway */
+        throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
+    }
+
+    public static FloatBuffer callocStackFloat(int size) {
+        /* Will be transformed anyway */
+        throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
+    }
+
+    public static DoubleBuffer callocStackDouble(int size) {
         /* Will be transformed anyway */
         throw new AssertionError("Please start the JVM with -javaagent:autostack.jar");
     }
