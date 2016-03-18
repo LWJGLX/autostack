@@ -44,14 +44,16 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
             public MethodVisitor visitMethod(int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
                     boolean mark;
+
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-                        if (opcode == INVOKESTATIC && owner.startsWith("org/lwjgl/") && (
-                                name.equals("mallocStack") ||
-                                name.equals("stackGet") ||
-                                name.equals("callocStack")) && !itf) {
+                        if (opcode == INVOKESTATIC && !itf && owner.startsWith("org/lwjgl/")
+                                && (name.equals("mallocStack") ||
+                                    name.equals("stackGet") ||
+                                    name.equals("callocStack"))) {
                             mark = true;
                         }
                     }
+
                     public void visitMaxs(int maxStack, int maxLocals) {
                         if (mark) {
                             stackMethods.put(methodName + methodDesc, maxLocals);
@@ -79,7 +81,8 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
 
                     public void visitInsn(int opcode) {
                         if (opcode >= IRETURN && opcode <= RETURN) {
-                            mv.visitMethodInsn(INVOKESTATIC, "org/lwjgl/system/MemoryStack", "stackPop", "()Lorg/lwjgl/system/MemoryStack;", false);
+                            mv.visitVarInsn(ALOAD, stackVar.intValue());
+                            mv.visitMethodInsn(INVOKEVIRTUAL, "org/lwjgl/system/MemoryStack", "pop", "()Lorg/lwjgl/system/MemoryStack;", false);
                             mv.visitInsn(POP);
                         }
                         mv.visitInsn(opcode);
@@ -92,9 +95,11 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                             if (desc.startsWith("(I"))
                                 mv.visitInsn(SWAP);
                             mv.visitMethodInsn(opcode, owner, newName, "(Lorg/lwjgl/system/MemoryStack;" + desc.substring(1), false);
-                            return;
+                        } else if (opcode == INVOKESTATIC && owner.equals("org/lwjgl/system/MemoryStack") && name.equals("stackGet")) {
+                            mv.visitVarInsn(ALOAD, stackVar.intValue());
+                        } else {
+                            mv.visitMethodInsn(opcode, owner, name, desc, itf);
                         }
-                        mv.visitMethodInsn(opcode, owner, name, desc, itf);
                     }
 
                     public void visitCode() {
@@ -106,7 +111,8 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
 
                     public void visitEnd() {
                         mv.visitLabel(finallyLabel);
-                        mv.visitMethodInsn(INVOKESTATIC, "org/lwjgl/system/MemoryStack", "stackPop", "()Lorg/lwjgl/system/MemoryStack;", false);
+                        mv.visitVarInsn(ALOAD, stackVar.intValue());
+                        mv.visitMethodInsn(INVOKEVIRTUAL, "org/lwjgl/system/MemoryStack", "pop", "()Lorg/lwjgl/system/MemoryStack;", false);
                         mv.visitInsn(POP);
                         mv.visitInsn(ATHROW);
                         mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, "java/lang/Exception");

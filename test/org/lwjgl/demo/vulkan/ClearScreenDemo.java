@@ -12,6 +12,7 @@ import static org.lwjgl.vulkan.VK10.*;
 import static org.lwjgl.vulkan.VKUtil.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
+import static org.lwjgl.system.MemoryStack.*;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -111,7 +112,7 @@ public class ClearScreenDemo {
         //
         // We also add the debug extension so that validation layers and other things can send log messages to us.
         ByteBuffer VK_EXT_DEBUG_REPORT_EXTENSION = memEncodeASCII(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, BufferAllocator.MALLOC);
-        PointerBuffer ppEnabledExtensionNames = memAllocPointer(requiredExtensions.remaining() + 1);
+        PointerBuffer ppEnabledExtensionNames = stackGet().mallocPointer(requiredExtensions.remaining() + 1);
         ppEnabledExtensionNames.put(requiredExtensions) // <- platform-dependent required extensions
                                .put(VK_EXT_DEBUG_REPORT_EXTENSION) // <- the debug extensions
                                .flip();
@@ -119,7 +120,7 @@ public class ClearScreenDemo {
         // Now comes the validation layers. These layers sit between our application (the Vulkan client) and the
         // Vulkan driver. Those layers will check whether we make any mistakes in using the Vulkan API and yell
         // at us via the debug extension.
-        PointerBuffer ppEnabledLayerNames = memAllocPointer(layers.length);
+        PointerBuffer ppEnabledLayerNames = stackGet().mallocPointer(layers.length);
         for (int i = 0; validation && i < layers.length; i++)
             ppEnabledLayerNames.put(layers[i]);
         ppEnabledLayerNames.flip();
@@ -134,10 +135,9 @@ public class ClearScreenDemo {
                 .pApplicationInfo(appInfo) // <- the application info we created above
                 .ppEnabledExtensionNames(ppEnabledExtensionNames) // <- and the extension names themselves
                 .ppEnabledLayerNames(ppEnabledLayerNames); // <- and the layer names themselves
-        PointerBuffer pInstance = memAllocPointer(1); // <- create a PointerBuffer which will hold the handle to the created VkInstance
+        PointerBuffer pInstance = stackGet().mallocPointer(1); // <- create a PointerBuffer which will hold the handle to the created VkInstance
         int err = vkCreateInstance(pCreateInfo, null, pInstance); // <- actually create the VkInstance now!
         long instance = pInstance.get(0); // <- get the VkInstance handle
-        memFree(pInstance); // <- free the PointerBuffer
         // One word about freeing memory:
         // Every host-allocated memory directly or indirectly referenced via a parameter to any Vulkan function can always
         // be freed right after the invocation of the Vulkan function returned.
@@ -151,9 +151,7 @@ public class ClearScreenDemo {
         VkInstance ret = new VkInstance(instance, pCreateInfo);
 
         // Now we can free/deallocate everything
-        memFree(ppEnabledLayerNames);
         memFree(VK_EXT_DEBUG_REPORT_EXTENSION);
-        memFree(ppEnabledExtensionNames);
         return ret;
     }
 
@@ -168,11 +166,10 @@ public class ClearScreenDemo {
                 .pfnCallback(callback) // <- the actual function pointer (in LWJGL a Closure)
                 .pUserData(NULL) // <- any user data provided to the debug report callback function
                 .flags(flags); // <- indicates which kind of messages we want to receive
-        LongBuffer pCallback = memAllocLong(1); // <- allocate a LongBuffer (for a non-dispatchable handle)
+        LongBuffer pCallback = stackGet().mallocLong(1); // <- allocate a LongBuffer (for a non-dispatchable handle)
         // Actually create the debug report callback
         int err = vkCreateDebugReportCallbackEXT(instance, dbgCreateInfo, null, pCallback);
         long callbackHandle = pCallback.get(0);
-        memFree(pCallback); // <- and free the LongBuffer
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to create VkInstance: " + translateVulkanResult(err));
         }
@@ -184,16 +181,14 @@ public class ClearScreenDemo {
      * the first one. 
      */
     private static VkPhysicalDevice getFirstPhysicalDevice(VkInstance instance) {
-        IntBuffer pPhysicalDeviceCount = memAllocInt(1);
+        IntBuffer pPhysicalDeviceCount = stackGet().mallocInt(1);
         int err = vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, null);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get number of physical devices: " + translateVulkanResult(err));
         }
-        PointerBuffer pPhysicalDevices = memAllocPointer(pPhysicalDeviceCount.get(0));
+        PointerBuffer pPhysicalDevices = stackGet().mallocPointer(pPhysicalDeviceCount.get(0));
         err = vkEnumeratePhysicalDevices(instance, pPhysicalDeviceCount, pPhysicalDevices);
         long physicalDevice = pPhysicalDevices.get(0);
-        memFree(pPhysicalDeviceCount);
-        memFree(pPhysicalDevices);
         if (err != VK_SUCCESS) {
             throw new AssertionError("Failed to get physical devices: " + translateVulkanResult(err));
         }
