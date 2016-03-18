@@ -66,7 +66,7 @@
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.5</version>
+				<version>3.5.1</version>
 				<configuration>
 					<source>1.6</source>
 					<target>1.6</target>
@@ -112,10 +112,6 @@
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>
-		</repository>
-		<repository>
-			<id>swt-repo</id>
-			<url>http://maven-eclipse.github.io/maven</url>
 		</repository>
 	</repositories>
 	<dependencies>
