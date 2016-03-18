@@ -21,7 +21,7 @@
 					<artifactId>lwjgl-platform</artifactId>
 					<version>${lwjgl.version}</version>
 					<classifier>natives-windows</classifier>
-					<scope>test</scope>
+					<scope>provided</scope>
 				</dependency>
 			</dependencies>
 		</profile>
@@ -38,7 +38,7 @@
 					<artifactId>lwjgl-platform</artifactId>
 					<version>${lwjgl.version}</version>
 					<classifier>natives-linux</classifier>
-					<scope>test</scope>
+					<scope>provided</scope>
 				</dependency>
 			</dependencies>
 		</profile>
@@ -55,7 +55,7 @@
 					<artifactId>lwjgl-platform</artifactId>
 					<version>${lwjgl.version}</version>
 					<classifier>natives-osx</classifier>
-					<scope>test</scope>
+					<scope>provided</scope>
 				</dependency>
 			</dependencies>
 		</profile>
@@ -133,7 +133,7 @@
 			<groupId>org.lwjgl</groupId>
 			<artifactId>lwjgl</artifactId>
 			<version>${lwjgl.version}</version>
-			<scope>test</scope>
+			<scope>provided</scope>
 		</dependency>
 	</dependencies>
 </project>
