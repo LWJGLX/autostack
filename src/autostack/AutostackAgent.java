@@ -45,17 +45,17 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
                                 owner.startsWith("org/lwjgl/")
-                                && (name.equals("mallocStack") ||
-                                    name.equals("stackGet") ||
-                                    name.equals("callocStack"))
-                                ) || (owner.equals(STACK) &&
+                                && (name.equals("mallocStack") || name.equals("callocStack"))
+                                ) || (owner.equals(MEMORYSTACK) && name.equals("stackGet")) || (owner.equals(STACK) &&
                                         (name.equals("mallocStack") ||
+                                         name.equals("mallocStackShort") ||
                                          name.equals("mallocStackInt") ||
                                          name.equals("mallocStackLong") ||
                                          name.equals("mallocStackFloat") ||
                                          name.equals("mallocStackDouble") ||
                                          name.equals("mallocStackPointer") ||
                                          name.equals("callocStack") ||
+                                         name.equals("callocStackShort") ||
                                          name.equals("callocStackInt") ||
                                          name.equals("callocStackLong") ||
                                          name.equals("callocStackFloat") ||
@@ -118,12 +118,14 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                         } else if (opcode == INVOKESTATIC && owner.equals(STACK) &&
                                 (name.equals("mallocStack") ||
+                                 name.equals("mallocStackShort") ||
                                  name.equals("mallocStackInt") ||
                                  name.equals("mallocStackLong") ||
                                  name.equals("mallocStackFloat") ||
                                  name.equals("mallocStackDouble") ||
                                  name.equals("mallocStackPointer") ||
                                  name.equals("callocStack") ||
+                                 name.equals("callocStackShort") ||
                                  name.equals("callocStackInt") ||
                                  name.equals("callocStackLong") ||
                                  name.equals("callocStackFloat") ||
