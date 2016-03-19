@@ -756,8 +756,23 @@ public class ClearScreenDemo {
 
             // Add a present memory barrier to the end of the command buffer
             // This will transform the frame buffer color attachment to a
-            // new layout for presenting it to the windowing system integration 
-            VkImageMemoryBarrier.Buffer prePresentBarrier = createPrePresentBarrier(swapchain.images[i]);
+            // new layout for presenting it to the windowing system integration
+            VkImageMemoryBarrier.Buffer prePresentBarrier = VkImageMemoryBarrier.calloc(1)
+                    .sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
+                    .pNext(NULL)
+                    .srcAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                    .dstAccessMask(0)
+                    .oldLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+                    .newLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+                    .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                    .image(swapchain.images[i]);
+            prePresentBarrier.subresourceRange()
+                    .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+                    .baseMipLevel(0)
+                    .levelCount(1)
+                    .baseArrayLayer(0)
+                    .layerCount(1);
             vkCmdPipelineBarrier(renderCommandBuffers[i],
                 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -765,7 +780,6 @@ public class ClearScreenDemo {
                 null, // No memory barriers
                 null, // No buffer memory barriers
                 prePresentBarrier); // One image memory barrier
-            prePresentBarrier.free();
 
             err = vkEndCommandBuffer(renderCommandBuffers[i]);
             if (err != VK_SUCCESS) {
@@ -773,46 +787,6 @@ public class ClearScreenDemo {
             }
         }
         return renderCommandBuffers;
-    }
-
-    private static VkImageMemoryBarrier.Buffer createPrePresentBarrier(long presentImage) {
-        VkImageMemoryBarrier.Buffer imageMemoryBarrier = VkImageMemoryBarrier.calloc(1)
-                .sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
-                .pNext(NULL)
-                .srcAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-                .dstAccessMask(0)
-                .oldLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-                .newLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-                .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        imageMemoryBarrier.subresourceRange()
-                .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-                .baseMipLevel(0)
-                .levelCount(1)
-                .baseArrayLayer(0)
-                .layerCount(1);
-        imageMemoryBarrier.image(presentImage);
-        return imageMemoryBarrier;
-    }
-
-    private static VkImageMemoryBarrier.Buffer createPostPresentBarrier(long presentImage) {
-        VkImageMemoryBarrier.Buffer imageMemoryBarrier = VkImageMemoryBarrier.calloc(1)
-                .sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
-                .pNext(NULL)
-                .srcAccessMask(0)
-                .dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
-                .oldLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-                .newLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-                .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
-                .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED);
-        imageMemoryBarrier.subresourceRange()
-                .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
-                .baseMipLevel(0)
-                .levelCount(1)
-                .baseArrayLayer(0)
-                .layerCount(1);
-        imageMemoryBarrier.image(presentImage);
-        return imageMemoryBarrier;
     }
 
     private static void submitPostPresentBarrier(long image, VkCommandBuffer commandBuffer, VkQueue queue) {
@@ -824,7 +798,22 @@ public class ClearScreenDemo {
             throw new AssertionError("Failed to begin command buffer: " + translateVulkanResult(err));
         }
 
-        VkImageMemoryBarrier.Buffer postPresentBarrier = createPostPresentBarrier(image);
+        VkImageMemoryBarrier.Buffer postPresentBarrier = VkImageMemoryBarrier.calloc(1)
+                .sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
+                .pNext(NULL)
+                .srcAccessMask(0)
+                .dstAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                .oldLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+                .newLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+                .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+                .image(image);
+        postPresentBarrier.subresourceRange()
+                .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+                .baseMipLevel(0)
+                .levelCount(1)
+                .baseArrayLayer(0)
+                .layerCount(1);
         vkCmdPipelineBarrier(
             commandBuffer,
             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -833,7 +822,6 @@ public class ClearScreenDemo {
             null, // No memory barriers,
             null, // No buffer barriers,
             postPresentBarrier); // one image barrier
-        postPresentBarrier.free();
 
         err = vkEndCommandBuffer(commandBuffer);
         if (err != VK_SUCCESS) {

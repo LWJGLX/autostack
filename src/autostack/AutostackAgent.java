@@ -67,7 +67,7 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
-                               (owner.equals(MEMORYSTACK) && name.equals("stackGet")) ||
+                                owner.equals(MEMORYSTACK) && name.equals("stackGet") ||
                                 owner.equals(STACK))) {
                             mark = true;
                         }
