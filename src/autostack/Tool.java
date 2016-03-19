@@ -33,6 +33,16 @@ import java.util.zip.ZipEntry;
 
 public class Tool {
 
+    private static boolean DEBUG_TRANSFORM = getBooleanProperty("autostack.DEBUG_TRANSFORM", false);
+    private static boolean DEBUG_RUNTIME = getBooleanProperty("autostack.DEBUG_RUNTIME", false);
+
+    private static boolean getBooleanProperty(String prop, boolean def) {
+        String value = System.getProperty(prop);
+        if (value != null)
+            return value.equals("") || Boolean.valueOf(value);
+        return def;
+    }
+
     public static void main(String[] args) throws IOException {
         if (args == null || args.length != 2) {
             System.out.println("Usage: java -jar autostack.jar input.jar output.jar");
@@ -41,7 +51,7 @@ public class Tool {
         }
         File inFile = new File(args[0]);
         File outFile = new File(args[1]);
-        Transformer transformer = new Transformer("");
+        Transformer transformer = new Transformer("", DEBUG_TRANSFORM, DEBUG_RUNTIME);
 
         FileInputStream fis = new FileInputStream(inFile);
         JarInputStream jarIn = new JarInputStream(fis);

@@ -59,6 +59,15 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 || className.startsWith("sun/")
                 || className.startsWith("org/lwjgl/vulkan/")
                 || className.startsWith("org/lwjgl/system/")
+                || className.startsWith("org/lwjgl/util/")
+                || className.startsWith("org/lwjgl/stb/")
+                || className.startsWith("org/lwjgl/ovr/")
+                || className.startsWith("org/lwjgl/openal/")
+                || className.startsWith("org/lwjgl/opengl/")
+                || className.startsWith("org/lwjgl/opencl/")
+                || className.startsWith("org/lwjgl/nanovg/")
+                || className.startsWith("org/lwjgl/egl/")
+                || className.startsWith("org/lwjgl/glfw/")
                 || !className.startsWith(packageClassPrefix))
             return null;
         ClassReader cr = new ClassReader(classfileBuffer);
