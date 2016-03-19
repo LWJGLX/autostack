@@ -94,7 +94,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     public void visitMaxs(int maxStack, int maxLocals) {
                         if (mark) {
                             if (debugTransform)
-                                System.out.println("Will transform: " + className.replace('/', '.') + "." + methodName);
+                                System.out.println("[autostack] Will transform: " + className.replace('/', '.') + "." + methodName);
                             stackMethods.put(methodName + methodDesc, maxLocals | (catches ? Integer.MIN_VALUE : 0));
                         }
                     }
@@ -116,7 +116,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 final int stackVarIndex = info.intValue() & ~Integer.MIN_VALUE;
                 boolean catches = (info.intValue() & Integer.MIN_VALUE) != 0;
                 if (debugTransform)
-                    System.out.println("Transforming method: " + className.replace('/', '.') + "." + name);
+                    System.out.println("[autostack] Transforming method: " + className.replace('/', '.') + "." + name);
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 mv = new MethodVisitor(ASM5, mv) {
@@ -128,7 +128,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (opcode >= IRETURN && opcode <= RETURN) {
                             if (debugRuntime) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                                mv.visitLdcInsn("Pop stack because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
+                                mv.visitLdcInsn("[autostack] Pop stack because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
                             mv.visitVarInsn(ALOAD, stackVarIndex);
@@ -142,19 +142,19 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (opcode == INVOKESTATIC && owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
                             String newName = name.substring(0, 6);
                             if (debugTransform)
-                                System.out.println("  rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + newName);
+                                System.out.println("[autostack]   rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             if (desc.startsWith("(I"))
                                 mv.visitInsn(SWAP);
                             mv.visitMethodInsn(opcode, owner, newName, "(L" + MEMORYSTACK + ";" + desc.substring(1), false);
                         } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
                             if (debugTransform)
-                                System.out.println("  rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
+                                System.out.println("[autostack]   rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                         } else if (opcode == INVOKESTATIC && owner.equals(STACK)) {
                             String newName = name.substring(0, 6) + name.substring(11);
                             if (debugTransform)
-                                System.out.println("  rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
+                                System.out.println("[autostack]   rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
@@ -172,7 +172,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitCode();
                         if (debugRuntime) {
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                            mv.visitLdcInsn("Push stack at begin of " + className.replace('/', '.') + "." + name);
+                            mv.visitLdcInsn("[autostack] Push stack at begin of " + className.replace('/', '.') + "." + name);
                             mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                         }
                         mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackPush", "()L"+ MEMORYSTACK + ";", false);
@@ -184,7 +184,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitLabel(finallyLabel);
                         if (debugRuntime) {
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                            mv.visitLdcInsn("Pop stack because of throw [");
+                            mv.visitLdcInsn("[autostack] Pop stack because of throw [");
                             mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
                             mv.visitInsn(DUP);
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
