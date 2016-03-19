@@ -8,7 +8,7 @@ This means, with Autostack you:
 - do not need to care about the optimal uses of MemoryStack.push() and MemoryStack.pop()
 - do not need to care about performance issues when performing repeated thread-local lookups on the MemoryStack.stackGet()
 
-For an example see the Vulkan [ClearScreenDemo](https://github.com/httpdigest/lwjgl3-autostack/blob/master/test/org/lwjgl/demo/vulkan/ClearScreenDemo.java).
+For an example see the Vulkan [ClearScreenDemo](https://github.com/httpdigest/lwjgl3-autostack/blob/master/test/autostrack/demo/ClearScreenDemo.java).
 
 How to use it?
 --------------
