@@ -48,7 +48,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
     }
 
     public Transformer(String packageClassPrefix, boolean debugTransform, boolean debugRuntime) {
-        this.packageClassPrefix = packageClassPrefix != null ? packageClassPrefix : "";
+        this.packageClassPrefix = packageClassPrefix != null ? packageClassPrefix.replace('.', '/') : "";
         this.debugTransform = debugTransform;
         this.debugRuntime = debugRuntime;
     }
