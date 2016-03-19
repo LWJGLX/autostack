@@ -175,7 +175,15 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitLabel(finallyLabel);
                         if (debugRuntime) {
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                            mv.visitLdcInsn("Pop stack because of throw at " + className.replace('/', '.') + "." + name + ":" + lastLine);
+                            mv.visitLdcInsn("Pop stack because of throw ");
+                            mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
+                            mv.visitInsn(DUP);
+                            mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                            mv.visitInsn(SWAP);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Object", "toString", "()Ljava/lang/String;", false);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
+                            mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                            mv.visitLdcInsn(" at " + className.replace('/', '.') + "." + name + ":" + lastLine);
                             mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                         }
                         mv.visitVarInsn(ALOAD, stackVarIndex);
