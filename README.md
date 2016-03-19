@@ -20,7 +20,7 @@ Optionally, to have optimal loading time, use a package prefix to tell Autostack
 
   `-javaagent:/path/to/autostack.jar=my.package`
 
-Instrumenting during build
+Build-time instrumentation
 --------------------------
 If for you the runtime instrumentation with the Java Agent is too slow or you don't want to have to provide the JVM argument or distribute the autostack.jar file with your application, you can also transform your classes offline.
 For this, the autostack.jar is an executable jar itself, which can be used like this:
