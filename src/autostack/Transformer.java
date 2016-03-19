@@ -228,21 +228,21 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     public void visitJumpInsn(int opcode, Label label) {
                         jumps++;
                         if (info.loops.size() > loopIndex && info.loops.get(loopIndex).gotoJump == jumps) {
-                            // This is the initial GOTO to jump to the loop condition. Push here
+                            // This is the initial GOTO to jump to the loop condition. Push here.
                             if (debugTransform)
                                 System.out.println("[autostack]     generating loop init push at line " + lastLine);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "push", "()L" + MEMORYSTACK + ";", false);
                             mv.visitInsn(POP);
                         } else if (info.loops.size() > loopIndex && info.loops.get(loopIndex).breakJump == jumps) {
-                            // GOTO to break out of jump. Pull here
+                            // GOTO to break out of loop. Pop here.
                             if (debugTransform)
                                 System.out.println("[autostack]     generating loop break pop at line " + lastLine);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
                             mv.visitInsn(POP);
                         } else if (info.loops.size() > loopIndex && info.loops.get(loopIndex).endJump == jumps) {
-                            // This is a loop back-jump! Generate stackPop
+                            // This is a loop back-jump! Pop here.
                             if (debugTransform)
                                 System.out.println("[autostack]     generating loop next pop at line " + lastLine);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
