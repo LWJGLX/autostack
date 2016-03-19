@@ -33,12 +33,12 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.TryCatchBlockSorter;
 
 public class Transformer implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
     private static final String STACK = "autostack/Stack";
-    private static final boolean AT_LEAST_JAVA7 = atLeastJava7();
     
     private String packageClassPrefix;
     private boolean debugTransform;
@@ -48,11 +48,6 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         this(packageClassPrefix, false, false);
     }
 
-    private static boolean atLeastJava7() {
-        String propValue = System.getProperty("java.class.version");
-        return propValue.startsWith("53.") || propValue.startsWith("52.") || propValue.startsWith("51.");
-    }
-
     public Transformer(String packageClassPrefix, boolean debugTransform, boolean debugRuntime) {
         this.packageClassPrefix = packageClassPrefix != null ? packageClassPrefix.replace('.', '/') : "";
         this.debugTransform = debugTransform;
@@ -60,6 +55,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
     }
 
     public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
+        try {
         if (className == null
                 || className.startsWith("java/")
                 || className.startsWith("sun/")
@@ -67,12 +63,12 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 || !className.startsWith(packageClassPrefix))
             return null;
         ClassReader cr = new ClassReader(classfileBuffer);
-        final Map<String, Integer> stackMethods = new HashMap<String, Integer>();
+        final Map<String, Boolean> stackMethods = new HashMap<String, Boolean>();
         // Scan all methods that need auto-stack
         if (debugTransform)
             System.out.println("[autostack] Scan methods in class: " + className.replace('/', '.'));
         cr.accept(new ClassVisitor(ASM5) {
-            public MethodVisitor visitMethod(int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
+            public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
                     boolean mark, catches;
 
@@ -89,11 +85,11 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         catches = true;
                     }
 
-                    public void visitMaxs(int maxStack, int maxLocals) {
+                    public void visitEnd() {
                         if (mark) {
                             if (debugTransform)
                                 System.out.println("[autostack]   Will transform method: " + className.replace('/', '.') + "." + methodName);
-                            stackMethods.put(methodName + methodDesc, maxLocals | (catches ? Integer.MIN_VALUE : 0));
+                            stackMethods.put(methodName + methodDesc, catches);
                         }
                     }
                 };
@@ -104,19 +100,53 @@ public class Transformer implements Opcodes, ClassFileTransformer {
             return null;
 
         // Now, transform all such methods
-        ClassWriter cw = new ClassWriter(cr, AT_LEAST_JAVA7 ? ClassWriter.COMPUTE_FRAMES : 0);
+        ClassWriter cw = new ClassWriter(cr, 0);
         cr.accept(new ClassVisitor(ASM5, cw) {
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                Integer info = stackMethods.get(name + desc);
+                Boolean info = stackMethods.get(name + desc);
                 if (info == null)
                     return mv;
-                final int stackVarIndex = info.intValue() & ~Integer.MIN_VALUE;
-                boolean catches = (info.intValue() & Integer.MIN_VALUE) != 0;
+                boolean catches = info.booleanValue();
                 if (debugTransform)
                     System.out.println("[autostack]   Transforming method: " + className.replace('/', '.') + "." + name);
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
+                Type[] paramTypes = Type.getArgumentTypes(desc);
+                boolean isStatic = (access & ACC_STATIC) != 0;
+                final Object[] replacedLocals = new Object[paramTypes.length + 1 + (isStatic ? 0 : 1)];
+                replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
+                if (!isStatic)
+                    replacedLocals[0] = className;
+                int var = isStatic ? 0 : 1;
+                for (int t = var; t < paramTypes.length; t++) {
+                    Type type = paramTypes[t];
+                    var += type.getSize();
+                    switch (type.getSort()) {
+                    case Type.INT:
+                    case Type.BYTE:
+                    case Type.SHORT:
+                    case Type.CHAR:
+                        replacedLocals[t] = INTEGER;
+                        break;
+                    case Type.LONG:
+                        replacedLocals[t] = LONG;
+                        break;
+                    case Type.FLOAT:
+                        replacedLocals[t] = FLOAT;
+                        break;
+                    case Type.DOUBLE:
+                        replacedLocals[t] = DOUBLE;
+                        break;
+                    case Type.OBJECT:
+                        replacedLocals[t] = type.getInternalName();
+                        break;
+                    case Type.ARRAY:
+                        replacedLocals[t] = type.getInternalName();
+                        break;
+                    }
+                }
+                final int stackVarIndex = var;
                 mv = new MethodVisitor(ASM5, mv) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
@@ -134,6 +164,36 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitInsn(POP);
                         }
                         mv.visitInsn(opcode);
+                    }
+
+                    public void visitVarInsn(int opcode, int var) {
+                        if (var >= stackVarIndex)
+                            var++;
+                        mv.visitVarInsn(opcode, var);
+                    }
+
+                    public void visitIincInsn(int var, int increment) {
+                        if (var >= stackVarIndex)
+                            var++;
+                        mv.visitIincInsn(var, increment);
+                    }
+
+                    public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
+                        if (type == F_FULL) {
+                            Object[] locals = new Object[local.length + 1];
+                            int replacementLength = replacedLocals.length;
+                            System.arraycopy(replacedLocals, 0, locals, 0, replacementLength);
+                            int len = local.length - replacementLength;
+                            System.arraycopy(local, replacementLength - 1, locals, replacementLength, len);
+                            mv.visitFrame(type, nLocal + 1, locals, nStack, stack);
+                        } else
+                            mv.visitFrame(type, nLocal, local, nStack, stack);
+                    }
+
+                    public void visitLocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
+                        if (index >= stackVarIndex)
+                            index++;
+                        mv.visitLocalVariable(name, desc, signature, start, end, index);
                     }
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
@@ -176,10 +236,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackPush", "()L"+ MEMORYSTACK + ";", false);
                         mv.visitVarInsn(ASTORE, stackVarIndex);
                         mv.visitLabel(tryLabel);
+                        mv.visitFrame(F_APPEND, 1, new Object[] {MEMORYSTACK}, 0, null);
                     }
 
-                    public void visitEnd() {
+                    public void visitMaxs(int maxStack, int maxLocals) {
                         mv.visitLabel(finallyLabel);
+                        mv.visitFrame(F_FULL, replacedLocals.length, replacedLocals, 1, new Object[] {"java/lang/Throwable"});
+                        mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, null);
                         if (debugRuntime) {
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
                             mv.visitLdcInsn("[autostack] Pop stack because of throw [");
@@ -197,12 +260,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
                         mv.visitInsn(POP);
                         mv.visitInsn(ATHROW);
-                        mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, null);
-                        mv.visitEnd();
-                    }
-
-                    public void visitMaxs(int maxStack, int maxLocals) {
                         mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + 1);
+                        mv.visitEnd();
                     }
                 };
                 return mv;
@@ -210,5 +269,9 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         }, 0);
         byte[] arr = cw.toByteArray();
         return arr;
+        } catch (Throwable t) {
+            t.printStackTrace();
+            throw new RuntimeException(t);
+        }
     }
 }
