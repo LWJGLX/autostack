@@ -34,3 +34,5 @@ I want to see what happens
 If you want to see which methods will be transformed by the agent and what happens at runtime when the transformed methods execute, there are two JVM system property parameters:
 - `-Dautostack.DEBUG_TRANSFORM`: Logs the methods and invocations within those methods that get transformed
 - `-Dautostack.DEBUG_RUNTIME`: Logs whenever an automatic stack push/pop happens at runtime. This potentially results in a lot of logging at runtime!
+
+Both properties apply to both the runtime agent and the build-time instrumentation tool. When used as JVM arguments to the offline jar transformation, both properties control the logging of the transformation as well as the code transformation to log during runtime of the application. So, with build-time instrumentation changing any of these properties at runtime of the application is not possible anymore, until with the agent.
