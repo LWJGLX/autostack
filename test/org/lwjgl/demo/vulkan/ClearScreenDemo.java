@@ -112,7 +112,7 @@ public class ClearScreenDemo {
         // This includes stuff like the Window System Interface extensions to actually render something on a window.
         //
         // We also add the debug extension so that validation layers and other things can send log messages to us.
-        ByteBuffer VK_EXT_DEBUG_REPORT_EXTENSION = memEncodeASCII(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, BufferAllocator.MALLOC);
+        ByteBuffer VK_EXT_DEBUG_REPORT_EXTENSION = memEncodeASCII(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, BufferAllocator.STACK);
         PointerBuffer ppEnabledExtensionNames = mallocStackPointer(requiredExtensions.remaining() + 1);
         ppEnabledExtensionNames.put(requiredExtensions) // <- platform-dependent required extensions
                                .put(VK_EXT_DEBUG_REPORT_EXTENSION) // <- the debug extensions
@@ -150,9 +150,6 @@ public class ClearScreenDemo {
         // Create an object-oriented wrapper around the simple VkInstance long handle
         // This is needed by LWJGL to later "dispatch" (i.e. direct calls to) the right Vukan functions.
         VkInstance ret = new VkInstance(instance, pCreateInfo);
-
-        // Now we can free/deallocate everything
-        memFree(VK_EXT_DEBUG_REPORT_EXTENSION);
         return ret;
     }
 
@@ -220,7 +217,7 @@ public class ClearScreenDemo {
                 .pQueuePriorities(pQueuePriorities);
 
         PointerBuffer extensions = mallocStackPointer(1);
-        ByteBuffer VK_KHR_SWAPCHAIN_EXTENSION = memEncodeASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME, BufferAllocator.MALLOC);
+        ByteBuffer VK_KHR_SWAPCHAIN_EXTENSION = memEncodeASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME, BufferAllocator.STACK);
         extensions.put(VK_KHR_SWAPCHAIN_EXTENSION);
         extensions.flip();
         PointerBuffer ppEnabledLayerNames = mallocStackPointer(layers.length);
@@ -245,8 +242,6 @@ public class ClearScreenDemo {
         DeviceAndGraphicsQueueFamily ret = new DeviceAndGraphicsQueueFamily();
         ret.device = new VkDevice(device, physicalDevice, deviceCreateInfo);
         ret.queueFamilyIndex = graphicsQueueFamilyIndex;
-
-        memFree(VK_KHR_SWAPCHAIN_EXTENSION);
         return ret;
     }
 
