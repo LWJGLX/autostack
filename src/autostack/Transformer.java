@@ -75,7 +75,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
-                                owner.equals(MEMORYSTACK) && name.equals("stackGet") ||
+                                owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush")) ||
                                 owner.equals(STACK))) {
                             mark = true;
                         }
@@ -207,6 +207,12 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
+                        } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && (name.equals("stackPush") || name.equals("stackPop"))) {
+                            String newName = "p" + name.substring(6);
+                            if (debugTransform)
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                         } else if (opcode == INVOKESTATIC && owner.equals(STACK)) {
                             String newName = name.substring(0, 6) + name.substring(11);
                             if (debugTransform)
