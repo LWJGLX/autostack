@@ -139,8 +139,6 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         replacedLocals[t] = DOUBLE;
                         break;
                     case Type.OBJECT:
-                        replacedLocals[t] = type.getInternalName();
-                        break;
                     case Type.ARRAY:
                         replacedLocals[t] = type.getInternalName();
                         break;
@@ -261,7 +259,6 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitInsn(POP);
                         mv.visitInsn(ATHROW);
                         mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + 1);
-                        mv.visitEnd();
                     }
                 };
                 return mv;
