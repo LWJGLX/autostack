@@ -1,7 +1,6 @@
 package autostack;
 
 import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
@@ -19,15 +18,15 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
     private static final String STACK = "autostack/Stack";
 
-    private static String packageClassPrefix;
+    private static String packageClassPrefix = "";
 
     public static void premain(String agentArguments, Instrumentation instrumentation) {
-        packageClassPrefix = agentArguments == null ? "" : agentArguments.replace('.', '/');
+        if (agentArguments != null)
+            packageClassPrefix = agentArguments.replace('.', '/');
         instrumentation.addTransformer(new AutostackAgent());
     }
 
-    public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer)
-            throws IllegalClassFormatException {
+    public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
         if (className == null
                 || className.startsWith("java/")
                 || className.startsWith("sun/")
