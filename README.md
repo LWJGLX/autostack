@@ -33,4 +33,4 @@ I want to see what happens
 --------------------------
 If you want to see which methods will be transformed by the agent and what happens at runtime when the transformed methods execute, there are two JVM system property parameters:
 - `-Dautostack.DEBUG_TRANSFORM`: Logs the methods and invocations within those methods that get transformed
-- `-Dautostack.DEBUG_RUNTIME`: Logs whenever an automatic stack push/pop happens at runtime. This will results in a lot of logging at runtime!
+- `-Dautostack.DEBUG_RUNTIME`: Logs whenever an automatic stack push/pop happens at runtime. This potentially results in a lot of logging at runtime!
