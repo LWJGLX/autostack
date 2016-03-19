@@ -24,7 +24,9 @@ package autostack;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.objectweb.asm.ClassReader;
@@ -63,7 +65,18 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 || !className.startsWith(packageClassPrefix))
             return null;
         ClassReader cr = new ClassReader(classfileBuffer);
-        final Map<String, Boolean> stackMethods = new HashMap<String, Boolean>();
+        final class Loop {
+            int gotoJump;
+            int breakJump;
+            int endJump;
+            int loopBody;
+        }
+        final class Info {
+            List<Loop> loops = new ArrayList<Loop>();
+            boolean catches;
+            int firstLine = -1;
+        }
+        final Map<String, Info> stackMethods = new HashMap<String, Info>();
         // Scan all methods that need auto-stack
         if (debugTransform)
             System.out.println("[autostack] Scan methods in class: " + className.replace('/', '.'));
@@ -71,6 +84,11 @@ public class Transformer implements Opcodes, ClassFileTransformer {
             public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
                     boolean mark, catches;
+                    Map<Label, Integer> visitedLabels = new HashMap<Label, Integer>();
+                    int jumps = 0;
+                    int labels = 0;
+                    Info info = new Info();
+                    Loop loop;
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
@@ -85,17 +103,46 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         catches = true;
                     }
 
+                    public void visitLineNumber(int line, Label start) {
+                        if (info.firstLine == -1)
+                            info.firstLine = line;
+                    }
+
+                    public void visitLabel(Label label) {
+                        labels++;
+                        visitedLabels.put(label, labels);
+                    }
+
+                    public void visitJumpInsn(int opcode, Label label) {
+                        jumps++;
+                        if (opcode == GOTO && !visitedLabels.containsKey(label) && loop == null) {
+                            // GOTO to the condition
+                            loop = new Loop();
+                            loop.gotoJump = jumps;
+                        } else if (opcode == GOTO && !visitedLabels.containsKey(label) && loop != null) {
+                            // BREAK out of loop
+                            loop.breakJump = jumps;
+                        }
+                        if (opcode != GOTO && visitedLabels.containsKey(label)) {
+                            // conditional jump back to loop begin
+                            loop.endJump = jumps;
+                            loop.loopBody = visitedLabels.get(label);
+                            info.loops.add(loop);
+                        }
+                    }
+
                     public void visitEnd() {
                         if (mark) {
                             if (debugTransform)
                                 System.out.println("[autostack]   Will transform method: " + className.replace('/', '.') + "." + methodName);
-                            stackMethods.put(methodName + methodDesc, catches);
+                            info.catches = catches;
+                            stackMethods.put(methodName + methodDesc, info);
                         }
                     }
                 };
                 return mv;
             }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        }, ClassReader.SKIP_FRAMES);
         if (stackMethods.isEmpty())
             return null;
 
@@ -104,10 +151,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         cr.accept(new ClassVisitor(ASM5, cw) {
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                Boolean info = stackMethods.get(name + desc);
+                final Info info = stackMethods.get(name + desc);
                 if (info == null)
                     return mv;
-                boolean catches = info.booleanValue();
+                boolean catches = info.catches;
                 if (debugTransform)
                     System.out.println("[autostack]   Transforming method: " + className.replace('/', '.') + "." + name);
                 if (catches)
@@ -148,7 +195,11 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 mv = new MethodVisitor(ASM5, mv) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
-                    int lastLine = 0;
+                    int lastLine = info.firstLine;
+                    int jumps = 0;
+                    int labels = 0;
+                    boolean awaitingFrame;
+                    int loopIndex = 0;
 
                     public void visitInsn(int opcode) {
                         if (opcode >= IRETURN && opcode <= RETURN) {
@@ -162,6 +213,44 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitInsn(POP);
                         }
                         mv.visitInsn(opcode);
+                    }
+
+                    public void visitLabel(Label label) {
+                        labels++;
+                        if (info.loops.size() > loopIndex && info.loops.get(loopIndex).loopBody == labels) {
+                            mv.visitLabel(label);
+                            awaitingFrame = true;
+                        } else {
+                            mv.visitLabel(label);
+                        }
+                    }
+
+                    public void visitJumpInsn(int opcode, Label label) {
+                        jumps++;
+                        if (info.loops.size() > loopIndex && info.loops.get(loopIndex).gotoJump == jumps) {
+                            // This is the initial GOTO to jump to the loop condition. Push here
+                            if (debugTransform)
+                                System.out.println("[autostack]     generating loop init push at line " + lastLine);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "push", "()L" + MEMORYSTACK + ";", false);
+                            mv.visitInsn(POP);
+                        } else if (info.loops.size() > loopIndex && info.loops.get(loopIndex).breakJump == jumps) {
+                            // GOTO to break out of jump. Pull here
+                            if (debugTransform)
+                                System.out.println("[autostack]     generating loop break pop at line " + lastLine);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
+                            mv.visitInsn(POP);
+                        } else if (info.loops.size() > loopIndex && info.loops.get(loopIndex).endJump == jumps) {
+                            // This is a loop back-jump! Generate stackPop
+                            if (debugTransform)
+                                System.out.println("[autostack]     generating loop next pop at line " + lastLine);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
+                            mv.visitInsn(POP);
+                            loopIndex++;
+                        }
+                        mv.visitJumpInsn(opcode, label);
                     }
 
                     public void visitVarInsn(int opcode, int var) {
@@ -186,6 +275,14 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitFrame(type, nLocal + 1, locals, nStack, stack);
                         } else
                             mv.visitFrame(type, nLocal, local, nStack, stack);
+                        if (awaitingFrame) {
+                            awaitingFrame = false;
+                            if (debugTransform)
+                                System.out.println("[autostack]     generating loop next push at line " + lastLine);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "push", "()L" + MEMORYSTACK + ";", false);
+                            mv.visitInsn(POP);
+                        }
                     }
 
                     public void visitLocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
