@@ -28,3 +28,9 @@ For this, the autostack.jar is an executable jar itself, which can be used like 
   `java -jar autotools.jar input.jar output.jar`
 
 In this example the input.jar is the jar file containing your uninstrumented class files (and possibly any other resources of your application). The output.jar is the jar in which all applicable transformations have been applied.
+
+I want to see what happens
+--------------------------
+If you want to see which methods will be transformed by the agent and what happens at runtime when the transformed methods execute, there are two JVM system property parameters:
+- `-Dautostack.DEBUG_TRANSFORM`: Logs the methods and invocations within those methods that get transformed
+- `-Dautostack.DEBUG_RUNTIME`: Logs whenever an automatic stack push/pop happens at runtime. This will results in a lot of logging at runtime!
