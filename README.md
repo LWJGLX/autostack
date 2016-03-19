@@ -3,7 +3,7 @@ What does it get me?
 LWJGL 3 has a nice stack allocation API. Autostack builds on top of this and provides automatic stack frame allocation/deallocation in methods that make use of LWJGL 3's MemoryStack class.
 This means, with Autostack you:
 - do not have to MemoryStack.stackPush() at the beginning of the method
-- do not have to MemoryStack.pop() at the end of the method (including any intermittent returns)
+- do not have to MemoryStack.pop() at the end of the method (including before any intermittent returns)
 - do not have to take care of exception handling with probably a try-finally wrapping the whole method to ensure MemoryStack.pop() gets called eventually
 - do not need to care about the optimal uses of MemoryStack.push() and MemoryStack.pop()
 - do not need to care about performance issues when performing repeated thread-local lookups on the MemoryStack.stackGet()
