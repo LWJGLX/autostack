@@ -23,7 +23,6 @@
 package autostack;
 
 import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,16 +35,22 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.TryCatchBlockSorter;
 
-public class AutostackAgent implements Opcodes, ClassFileTransformer {
+public class Transformer implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
     private static final String STACK = "autostack/Stack";
 
-    private static String packageClassPrefix = "";
+    private String packageClassPrefix;
+    private boolean debugTransform;
+    private boolean debugRuntime;
 
-    public static void premain(String agentArguments, Instrumentation instrumentation) {
-        if (agentArguments != null)
-            packageClassPrefix = agentArguments.replace('.', '/');
-        instrumentation.addTransformer(new AutostackAgent());
+    public Transformer(String packageClassPrefix) {
+        this(packageClassPrefix, false, false);
+    }
+
+    public Transformer(String packageClassPrefix, boolean debugTransform, boolean debugRuntime) {
+        this.packageClassPrefix = packageClassPrefix != null ? packageClassPrefix : "";
+        this.debugTransform = debugTransform;
+        this.debugRuntime = debugRuntime;
     }
 
     public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
@@ -79,6 +84,8 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
 
                     public void visitMaxs(int maxStack, int maxLocals) {
                         if (mark) {
+                            if (debugTransform)
+                                System.out.println("Will transform: " + className.replace('/', '.') + "." + methodName);
                             stackMethods.put(methodName + methodDesc, maxLocals | (catches ? Integer.MIN_VALUE : 0));
                         }
                     }
@@ -92,21 +99,29 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
         // Now, transform all such methods
         ClassWriter cw = new ClassWriter(cr, 0);
         cr.accept(new ClassVisitor(ASM5, cw) {
-            public MethodVisitor visitMethod(final int access, String name, final String desc, String signature, String[] exceptions) {
+            public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
                 Integer info = stackMethods.get(name + desc);
                 if (info == null)
                     return mv;
                 final int stackVarIndex = info.intValue() & ~Integer.MIN_VALUE;
                 boolean catches = (info.intValue() & Integer.MIN_VALUE) != 0;
+                if (debugTransform)
+                    System.out.println("Transforming method: " + className.replace('/', '.') + "." + name);
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 mv = new MethodVisitor(ASM5, mv) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
+                    int lastLine = 0;
 
                     public void visitInsn(int opcode) {
                         if (opcode >= IRETURN && opcode <= RETURN) {
+                            if (debugRuntime) {
+                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                                mv.visitLdcInsn("Pop stack because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
+                            }
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
                             mv.visitInsn(POP);
@@ -117,14 +132,20 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
                             String newName = name.substring(0, 6);
+                            if (debugTransform)
+                                System.out.println("  rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             if (desc.startsWith("(I"))
                                 mv.visitInsn(SWAP);
                             mv.visitMethodInsn(opcode, owner, newName, "(L" + MEMORYSTACK + ";" + desc.substring(1), false);
                         } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
+                            if (debugTransform)
+                                System.out.println("  rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                         } else if (opcode == INVOKESTATIC && owner.equals(STACK)) {
                             String newName = name.substring(0, 6) + name.substring(11);
+                            if (debugTransform)
+                                System.out.println("  rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
@@ -133,8 +154,18 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                         }
                     }
 
+                    public void visitLineNumber(int line, Label start) {
+                        mv.visitLineNumber(line, start);
+                        lastLine = line;
+                    }
+
                     public void visitCode() {
                         mv.visitCode();
+                        if (debugRuntime) {
+                            mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                            mv.visitLdcInsn("Push stack at begin of " + className.replace('/', '.') + "." + name);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
+                        }
                         mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackPush", "()L"+ MEMORYSTACK + ";", false);
                         mv.visitVarInsn(ASTORE, stackVarIndex);
                         mv.visitLabel(tryLabel);
@@ -142,6 +173,11 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
 
                     public void visitEnd() {
                         mv.visitLabel(finallyLabel);
+                        if (debugRuntime) {
+                            mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                            mv.visitLdcInsn("Pop stack because of throw at " + className.replace('/', '.') + "." + name + ":" + lastLine);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
+                        }
                         mv.visitVarInsn(ALOAD, stackVarIndex);
                         mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
                         mv.visitInsn(POP);
@@ -151,7 +187,7 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitMaxs(int maxStack, int maxLocals) {
-                        mv.visitMaxs(maxStack, maxLocals + 1);
+                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + 1);
                     }
                 };
                 return mv;

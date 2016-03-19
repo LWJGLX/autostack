@@ -41,7 +41,7 @@ public class Tool {
         }
         File inFile = new File(args[0]);
         File outFile = new File(args[1]);
-        AutostackAgent agent = new AutostackAgent();
+        Transformer transformer = new Transformer("");
 
         FileInputStream fis = new FileInputStream(inFile);
         JarInputStream jarIn = new JarInputStream(fis);
@@ -69,7 +69,7 @@ public class Tool {
                         baos.write(arr, 0, read);
                     }
                     byte[] classfileBytes = baos.toByteArray();
-                    byte[] transformed = agent.transform(null, entry.getName().substring(0, entry.getName().length() - 6), null, null, classfileBytes);
+                    byte[] transformed = transformer.transform(null, entry.getName().substring(0, entry.getName().length() - 6), null, null, classfileBytes);
                     if (transformed != null) {
                         jarOut.write(transformed, 0, transformed.length);
                     } else {

@@ -99,7 +99,7 @@
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<manifestEntries>
 										<Main-Class>autostack.Tool</Main-Class>
-										<Premain-Class>autostack.AutostackAgent</Premain-Class>
+										<Premain-Class>autostack.Agent</Premain-Class>
 									</manifestEntries>
 								</transformer>
 							</transformers>
