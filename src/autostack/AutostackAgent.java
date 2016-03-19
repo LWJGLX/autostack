@@ -124,7 +124,7 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                         mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
                         mv.visitInsn(POP);
                         mv.visitInsn(ATHROW);
-                        mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, "java/lang/Exception");
+                        mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, null);
                         mv.visitEnd();
                     }
 
