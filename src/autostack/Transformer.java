@@ -57,22 +57,14 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         if (className == null
                 || className.startsWith("java/")
                 || className.startsWith("sun/")
-                || className.startsWith("org/lwjgl/vulkan/")
-                || className.startsWith("org/lwjgl/system/")
-                || className.startsWith("org/lwjgl/util/")
-                || className.startsWith("org/lwjgl/stb/")
-                || className.startsWith("org/lwjgl/ovr/")
-                || className.startsWith("org/lwjgl/openal/")
-                || className.startsWith("org/lwjgl/opengl/")
-                || className.startsWith("org/lwjgl/opencl/")
-                || className.startsWith("org/lwjgl/nanovg/")
-                || className.startsWith("org/lwjgl/egl/")
-                || className.startsWith("org/lwjgl/glfw/")
+                || className.startsWith("org/lwjgl/")
                 || !className.startsWith(packageClassPrefix))
             return null;
         ClassReader cr = new ClassReader(classfileBuffer);
         final Map<String, Integer> stackMethods = new HashMap<String, Integer>();
         // Scan all methods that need auto-stack
+        if (debugTransform)
+            System.out.println("[autostack] Scan methods in class: " + className.replace('/', '.'));
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
@@ -94,7 +86,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     public void visitMaxs(int maxStack, int maxLocals) {
                         if (mark) {
                             if (debugTransform)
-                                System.out.println("[autostack] Will transform: " + className.replace('/', '.') + "." + methodName);
+                                System.out.println("[autostack]   Will transform method: " + className.replace('/', '.') + "." + methodName);
                             stackMethods.put(methodName + methodDesc, maxLocals | (catches ? Integer.MIN_VALUE : 0));
                         }
                     }
@@ -116,7 +108,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 final int stackVarIndex = info.intValue() & ~Integer.MIN_VALUE;
                 boolean catches = (info.intValue() & Integer.MIN_VALUE) != 0;
                 if (debugTransform)
-                    System.out.println("[autostack] Transforming method: " + className.replace('/', '.') + "." + name);
+                    System.out.println("[autostack]   Transforming method: " + className.replace('/', '.') + "." + name);
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 mv = new MethodVisitor(ASM5, mv) {
@@ -142,19 +134,19 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (opcode == INVOKESTATIC && owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
                             String newName = name.substring(0, 6);
                             if (debugTransform)
-                                System.out.println("[autostack]   rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + newName);
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             if (desc.startsWith("(I"))
                                 mv.visitInsn(SWAP);
                             mv.visitMethodInsn(opcode, owner, newName, "(L" + MEMORYSTACK + ";" + desc.substring(1), false);
                         } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
                             if (debugTransform)
-                                System.out.println("[autostack]   rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                         } else if (opcode == INVOKESTATIC && owner.equals(STACK)) {
                             String newName = name.substring(0, 6) + name.substring(11);
                             if (debugTransform)
-                                System.out.println("[autostack]   rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
