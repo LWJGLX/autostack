@@ -4,6 +4,15 @@
 	<groupId>org.lwjgl.util</groupId>
 	<artifactId>autostack</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
+	<name>Autostack</name>
+	<description>Autostack for LWJGL 3</description>
+	<inceptionYear>2016</inceptionYear>
+	<licenses>
+		<license>
+			<name>MIT License</name>
+			<url>http://www.opensource.org/licenses/mit-license.php</url>
+		</license>
+	</licenses>
 	<properties>
 		<lwjgl.version>3.0.0-SNAPSHOT</lwjgl.version>
 	</properties>
