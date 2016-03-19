@@ -44,24 +44,9 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
-                                owner.startsWith("org/lwjgl/")
-                                && (name.equals("mallocStack") || name.equals("callocStack"))
-                                ) || (owner.equals(MEMORYSTACK) && name.equals("stackGet")) || (owner.equals(STACK) &&
-                                        (name.equals("mallocStack") ||
-                                         name.equals("mallocStackShort") ||
-                                         name.equals("mallocStackInt") ||
-                                         name.equals("mallocStackLong") ||
-                                         name.equals("mallocStackFloat") ||
-                                         name.equals("mallocStackDouble") ||
-                                         name.equals("mallocStackPointer") ||
-                                         name.equals("callocStack") ||
-                                         name.equals("callocStackShort") ||
-                                         name.equals("callocStackInt") ||
-                                         name.equals("callocStackLong") ||
-                                         name.equals("callocStackFloat") ||
-                                         name.equals("callocStackDouble") ||
-                                         name.equals("callocStackPointer")))
-                            ) {
+                                owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
+                               (owner.equals(MEMORYSTACK) && name.equals("stackGet")) ||
+                                owner.equals(STACK))) {
                             mark = true;
                         }
                     }
@@ -116,21 +101,7 @@ public class AutostackAgent implements Opcodes, ClassFileTransformer {
                             mv.visitMethodInsn(opcode, owner, newName, "(L" + MEMORYSTACK + ";" + desc.substring(1), false);
                         } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
                             mv.visitVarInsn(ALOAD, stackVarIndex);
-                        } else if (opcode == INVOKESTATIC && owner.equals(STACK) &&
-                                (name.equals("mallocStack") ||
-                                 name.equals("mallocStackShort") ||
-                                 name.equals("mallocStackInt") ||
-                                 name.equals("mallocStackLong") ||
-                                 name.equals("mallocStackFloat") ||
-                                 name.equals("mallocStackDouble") ||
-                                 name.equals("mallocStackPointer") ||
-                                 name.equals("callocStack") ||
-                                 name.equals("callocStackShort") ||
-                                 name.equals("callocStackInt") ||
-                                 name.equals("callocStackLong") ||
-                                 name.equals("callocStackFloat") ||
-                                 name.equals("callocStackDouble") ||
-                                 name.equals("callocStackPointer"))) {
+                        } else if (opcode == INVOKESTATIC && owner.equals(STACK)) {
                             String newName = name.substring(0, 6) + name.substring(11);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
