@@ -195,25 +195,30 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-                        if (opcode == INVOKESTATIC && owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
+                        if (opcode != INVOKESTATIC) {
+                            mv.visitMethodInsn(opcode, owner, name, desc, itf);
+                            return;
+                        }
+                        if (owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
                             String newName = name.substring(0, 6);
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
-                            if (desc.startsWith("(I"))
-                                mv.visitInsn(SWAP);
-                            mv.visitMethodInsn(opcode, owner, newName, "(L" + MEMORYSTACK + ";" + desc.substring(1), false);
-                        } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
+                            int paramEndIndex = desc.indexOf(')');
+                            String beforeDesc = desc.substring(0, paramEndIndex);
+                            String afterDesc = desc.substring(paramEndIndex);
+                            mv.visitMethodInsn(opcode, owner, newName, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, false);
+                        } else if (owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
-                        } else if (opcode == INVOKESTATIC && owner.equals(MEMORYSTACK) && (name.equals("stackPush") || name.equals("stackPop"))) {
+                        } else if (owner.equals(MEMORYSTACK) && (name.equals("stackPush") || name.equals("stackPop"))) {
                             String newName = "p" + name.substring(6);
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
-                        } else if (opcode == INVOKESTATIC && owner.equals(STACK)) {
+                        } else if (owner.equals(STACK)) {
                             String newName = name.substring(0, 6) + name.substring(11);
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
