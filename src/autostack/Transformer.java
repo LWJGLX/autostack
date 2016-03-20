@@ -177,7 +177,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (opcode >= IRETURN && opcode <= RETURN) {
                             if (debugRuntime) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                                mv.visitLdcInsn("[autostack] Pop stack because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
+                                mv.visitLdcInsn("[autostack] Restore stack pointer because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
                             mv.visitVarInsn(ALOAD, stackVarIndex);
@@ -261,7 +261,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitCode();
                         if (debugRuntime) {
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                            mv.visitLdcInsn("[autostack] Push stack at begin of " + className.replace('/', '.') + "." + name);
+                            mv.visitLdcInsn("[autostack] Save stack pointer at begin of " + className.replace('/', '.') + "." + name);
                             mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                         }
                         mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
@@ -279,7 +279,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, null);
                         if (debugRuntime) {
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                            mv.visitLdcInsn("[autostack] Pop stack because of throw [");
+                            mv.visitLdcInsn("[autostack] Restore stack pointer because of throw [");
                             mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
                             mv.visitInsn(DUP);
                             mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
