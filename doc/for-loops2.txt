@@ -24,3 +24,20 @@
     ...
     IF_ICMPLT L1 <-- jump to loop body
    L3 <-- loop end
+
+// for-loop with multiple conditional breaks
+    ICONST_0 <-- loop initialization
+    ISTORE 1
+    GOTO L0 <-- jump to loop condition
+   L1 <-- loop body
+    ...
+    IF_ICMPEQ L2 <-- conditional break (jumps when not breaking)
+    ...
+    IF_ICMPNE L2 <-- conditional break (jumps when not breaking)
+    GOTO L3 <-- jump to loop end
+   L2 <-- loop increment
+    IINC 1 1
+   L0 <-- loop condition
+    ...
+    IF_ICMPLT L1 <-- jump to loop body
+   L3 <-- loop end
