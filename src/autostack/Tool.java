@@ -51,7 +51,9 @@ public class Tool {
         }
         File inFile = new File(args[0]);
         File outFile = new File(args[1]);
-        Transformer transformer = new Transformer("", DEBUG_TRANSFORM, DEBUG_RUNTIME);
+        Transformer transformer = new Transformer("");
+        transformer.setDebugRuntime(DEBUG_RUNTIME);
+        transformer.setDebugTransform(DEBUG_TRANSFORM);
 
         FileInputStream fis = new FileInputStream(inFile);
         JarInputStream jarIn = new JarInputStream(fis);

@@ -22,6 +22,7 @@
  */
 package autostack;
 
+import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.HashMap;
@@ -35,6 +36,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.TryCatchBlockSorter;
+import org.objectweb.asm.util.TraceClassVisitor;
 
 public class Transformer implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
@@ -43,19 +45,37 @@ public class Transformer implements Opcodes, ClassFileTransformer {
     private String packageClassPrefix;
     private boolean debugTransform;
     private boolean debugRuntime;
+    private boolean trace;
 
     public Transformer(String packageClassPrefix) {
-        this(packageClassPrefix, false, false);
+        this.packageClassPrefix = packageClassPrefix != null ? packageClassPrefix.replace('.', '/') : "";
     }
 
-    public Transformer(String packageClassPrefix, boolean debugTransform, boolean debugRuntime) {
-        this.packageClassPrefix = packageClassPrefix != null ? packageClassPrefix.replace('.', '/') : "";
+    public boolean isDebugTransform() {
+        return debugTransform;
+    }
+
+    public void setDebugTransform(boolean debugTransform) {
         this.debugTransform = debugTransform;
+    }
+
+    public boolean isDebugRuntime() {
+        return debugRuntime;
+    }
+
+    public void setDebugRuntime(boolean debugRuntime) {
         this.debugRuntime = debugRuntime;
     }
 
+    public boolean isTrace() {
+        return trace;
+    }
+
+    public void setTrace(boolean trace) {
+        this.trace = trace;
+    }
+
     public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
-        try {
         if (className == null
                 || className.startsWith("java/")
                 || className.startsWith("sun/")
@@ -276,10 +296,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
             }
         }, 0);
         byte[] arr = cw.toByteArray();
-        return arr;
-        } catch (Throwable t) {
-            t.printStackTrace();
-            throw new RuntimeException(t);
+        if (trace) {
+            cr = new ClassReader(arr);
+            cr.accept(new TraceClassVisitor(new PrintWriter(System.out)), 0);
         }
+        return arr;
     }
 }

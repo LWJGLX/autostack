@@ -6,6 +6,7 @@ public class Agent {
 
     private static boolean DEBUG_TRANSFORM = getBooleanProperty("autostack.DEBUG_TRANSFORM", false);
     private static boolean DEBUG_RUNTIME = getBooleanProperty("autostack.DEBUG_RUNTIME", false);
+    private static boolean TRACE = getBooleanProperty("autostack.TRACE", false);
 
     private static boolean getBooleanProperty(String prop, boolean def) {
         String value = System.getProperty(prop);
@@ -15,7 +16,11 @@ public class Agent {
     }
 
     public static void premain(String agentArguments, Instrumentation instrumentation) {
-        instrumentation.addTransformer(new Transformer(agentArguments, DEBUG_TRANSFORM, DEBUG_RUNTIME));
+        Transformer transformer = new Transformer(agentArguments);
+        transformer.setDebugRuntime(DEBUG_RUNTIME);
+        transformer.setDebugTransform(DEBUG_TRANSFORM);
+        transformer.setTrace(TRACE);
+        instrumentation.addTransformer(transformer);
     }
 
 }
