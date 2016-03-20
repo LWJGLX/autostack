@@ -1,0 +1,26 @@
+// simple for-loop counting from 0 to 4:
+    ICONST_0 <-- loop initialization
+    ISTORE 1
+    GOTO L0 <-- jump to loop condition
+   L1 <-- loop body
+    ...
+    IINC 1 1 <-- loop increment
+   L0 <-- loop condition
+    ...
+    IF_ICMPLT L1 <-- jump to loop body
+    ... <-- after loop (without explicit label)
+
+// for-loop with conditional break
+    ICONST_0 <-- loop initialization
+    ISTORE 1
+    GOTO L0 <-- jump to loop condition
+   L1 <-- loop body
+    ...
+    IF_ICMPNE L2 <-- conditional break (jumps when not breaking)
+    GOTO L3 <-- jump to loop end
+   L2 <-- loop increment
+    IINC 1 1
+   L0 <-- loop condition
+    ...
+    IF_ICMPLT L1 <-- jump to loop body
+   L3 <-- loop end
