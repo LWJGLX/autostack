@@ -40,7 +40,6 @@ import org.objectweb.asm.util.TraceClassVisitor;
 
 public class Transformer implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
-    private static final String STACK = "autostack/Stack";
     
     private String packageClassPrefix;
     private boolean debugTransform;
@@ -95,8 +94,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
-                                owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush")) ||
-                                owner.equals(STACK))) {
+                                owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush") ||
+                                                              name.startsWith("stackAlloc") || name.startsWith("stackCalloc")))) {
                             mark = true;
                         }
                     }
@@ -134,9 +133,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 Type[] paramTypes = Type.getArgumentTypes(desc);
                 boolean isStatic = (access & ACC_STATIC) != 0;
-                final int additionalLocals = 1;
+                final int additionalLocals = 2;
                 final Object[] replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
-                replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
+                replacedLocals[replacedLocals.length - 2] = MEMORYSTACK;
+                replacedLocals[replacedLocals.length - 1] = INTEGER;
                 if (!isStatic)
                     replacedLocals[0] = className;
                 int var = isStatic ? 0 : 1;
@@ -165,7 +165,9 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         break;
                     }
                 }
+                final int firstAdditionalLocal = var;
                 final int stackVarIndex = var;
+                final int stackPointerVarIndex = var + 1;
                 mv = new MethodVisitor(ASM5, mv) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
@@ -179,21 +181,21 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
                             mv.visitVarInsn(ALOAD, stackVarIndex);
-                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
-                            mv.visitInsn(POP);
+                            mv.visitVarInsn(ILOAD, stackPointerVarIndex);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "setPointer", "(I)V", false);
                         }
                         mv.visitInsn(opcode);
                     }
 
                     public void visitVarInsn(int opcode, int var) {
-                        if (var >= stackVarIndex)
-                            var++;
+                        if (var >= firstAdditionalLocal)
+                            var += additionalLocals;
                         mv.visitVarInsn(opcode, var);
                     }
 
                     public void visitIincInsn(int var, int increment) {
-                        if (var >= stackVarIndex)
-                            var++;
+                        if (var >= firstAdditionalLocal)
+                            var += additionalLocals;
                         mv.visitIincInsn(var, increment);
                     }
 
@@ -210,8 +212,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitLocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
-                        if (index >= stackVarIndex)
-                            index++;
+                        if (index >= firstAdditionalLocal)
+                            index += additionalLocals;
                         mv.visitLocalVariable(name, desc, signature, start, end, index);
                     }
 
@@ -221,14 +223,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             return;
                         }
                         if (owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
-                            String newName = name.substring(0, 6);
                             if (debugTransform)
-                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + newName);
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + name);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             int paramEndIndex = desc.indexOf(')');
                             String beforeDesc = desc.substring(0, paramEndIndex);
                             String afterDesc = desc.substring(paramEndIndex);
-                            mv.visitMethodInsn(opcode, owner, newName, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, false);
+                            mv.visitMethodInsn(opcode, owner, name, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, false);
                         } else if (owner.equals(MEMORYSTACK) && name.equals("stackGet")) {
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex);
@@ -239,8 +240,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
-                        } else if (owner.equals(STACK)) {
-                            String newName = name.substring(0, 6) + name.substring(11);
+                        } else if (owner.equals(MEMORYSTACK) && (name.startsWith("stackMalloc") || name.startsWith("stackCalloc"))) {
+                            String newName = name.substring(5, 6).toLowerCase() + name.substring(6);
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
@@ -263,10 +264,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitLdcInsn("[autostack] Push stack at begin of " + className.replace('/', '.') + "." + name);
                             mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                         }
-                        mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackPush", "()L"+ MEMORYSTACK + ";", false);
+                        mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
+                        mv.visitInsn(DUP);
                         mv.visitVarInsn(ASTORE, stackVarIndex);
+                        mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
+                        mv.visitVarInsn(ISTORE, stackPointerVarIndex);
                         mv.visitLabel(tryLabel);
-                        mv.visitFrame(F_APPEND, 1, new Object[] {MEMORYSTACK}, 0, null);
+                        mv.visitFrame(F_APPEND, 2, new Object[] {MEMORYSTACK, INTEGER}, 0, null);
                     }
 
                     public void visitMaxs(int maxStack, int maxLocals) {
@@ -287,10 +291,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                         }
                         mv.visitVarInsn(ALOAD, stackVarIndex);
-                        mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
-                        mv.visitInsn(POP);
+                        mv.visitVarInsn(ILOAD, stackPointerVarIndex);
+                        mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "setPointer", "(I)V", false);
                         mv.visitInsn(ATHROW);
-                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + 1);
+                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + additionalLocals);
                     }
                 };
                 return mv;
