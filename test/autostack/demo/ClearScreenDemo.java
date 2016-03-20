@@ -57,6 +57,8 @@ import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 import org.lwjgl.vulkan.VkViewport;
 
+import autostack.ReuseCallerStack;
+
 /**
  * Renders a simple cornflower blue image on a GLFW window with Vulkan.
  * <p>
@@ -465,6 +467,7 @@ public class ClearScreenDemo {
         long[] imageViews;
     }
 
+    @ReuseCallerStack
     private static Swapchain createSwapChain(VkDevice device, VkPhysicalDevice physicalDevice, long surface, long oldSwapChain, VkCommandBuffer commandBuffer, int width,
             int height, int colorFormat, int colorSpace) {
         int err;
@@ -664,6 +667,7 @@ public class ClearScreenDemo {
         return framebuffers;
     }
 
+    @ReuseCallerStack
     private static void submitCommandBuffer(VkQueue queue, VkCommandBuffer commandBuffer) {
         if (commandBuffer == null || commandBuffer.address() == NULL)
             return;
@@ -679,6 +683,7 @@ public class ClearScreenDemo {
         }
     }
 
+    @ReuseCallerStack
     private static VkCommandBuffer[] createRenderCommandBuffers(VkDevice device, long commandPool, long[] framebuffers, long renderPass, int width, int height) {
         // Create the render command buffers (one command buffer per framebuffer image)
         VkCommandBufferAllocateInfo cmdBufAllocateInfo = VkCommandBufferAllocateInfo.callocStack()
@@ -757,7 +762,7 @@ public class ClearScreenDemo {
             // Add a present memory barrier to the end of the command buffer
             // This will transform the frame buffer color attachment to a
             // new layout for presenting it to the windowing system integration
-            VkImageMemoryBarrier.Buffer prePresentBarrier = VkImageMemoryBarrier.calloc(1)
+            VkImageMemoryBarrier.Buffer prePresentBarrier = VkImageMemoryBarrier.callocStack(1)
                     .sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
                     .pNext(NULL)
                     .srcAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
@@ -798,7 +803,7 @@ public class ClearScreenDemo {
             throw new AssertionError("Failed to begin command buffer: " + translateVulkanResult(err));
         }
 
-        VkImageMemoryBarrier.Buffer postPresentBarrier = VkImageMemoryBarrier.calloc(1)
+        VkImageMemoryBarrier.Buffer postPresentBarrier = VkImageMemoryBarrier.callocStack(1)
                 .sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
                 .pNext(NULL)
                 .srcAccessMask(0)
