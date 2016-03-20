@@ -1,0 +1,80 @@
+// empty for-loop
+   L8 <-- Loop initialization
+    ...
+   L11 <-- Loop condition
+    ...
+    IF_ICMPGE L12 <-- Condition not met, jump out of loop
+    ...
+    IINC 1 1 <-- Loop increment (without extra label)
+    GOTO L11 <-- jump to loop condition
+   L12
+
+// for-loop with condition at start and unconditional GOTO at end
+   L6 <-- Loop initialization
+    ...
+   L7 <-- Loop condition
+    ...
+    IF_ICMPGE L8 <-- Condition not met, jump out of loop
+   L9 <-- Loop body
+    ...
+    IFEQ L12 <-- jump to continue loop
+    ...
+   L12 <-- Loop increment
+    IINC 7 1
+    GOTO L7 <-- jump to loop condition
+   L8 <-- Loop end label
+
+// for-loop with a break in the body
+   L15 <-- Loop initialization
+    ...
+   L16 <-- Loop condition
+    ...
+    IF_ICMPGE L17 <-- Condition not met, jump out of loop
+   L18 <-- Loop body
+    ...
+    IFEQ L19 <-- Continue loop
+   L20
+    ...
+    IF_ICMPNE L19 <-- Continue loop
+   L23
+    ...
+    GOTO L17 <-- break out of loop
+   L19 <-- Loop increment
+    IINC 9 1
+    GOTO L16 <-- jump to loop condition
+   L17 <-- Loop end label
+
+// for-loop with multiple conditions
+   L2 <-- Loop initialization
+    ...
+   L5 <-- Loop condition (multiple conditions)
+    ...
+    IF_ICMPGE L6 <-- first condition not met, jump out
+    ...
+    IF_ICMPNE L6 <-- second condition not met, jump out
+    ...
+    IF_ICMPLE L6 <-- third condition not met, jump out
+   L7 <-- Loop body
+    ...
+   L8 <-- Loop increment
+    IINC 1 1
+    GOTO L5 <-- jump to loop condition
+   L6 <-- Loop end
+
+// for-loop with continue in body
+   L0 <-- Loop initialization
+    ...
+   L1 <-- Loop condition
+    ...
+    IF_ICMPGE L2 <-- Condition not met, jump out of loop
+   L3 <-- Loop body
+    ...
+    IF_ICMPNE L4 <-- Conditional continue (jumps if NOT to continue)
+   L5 <-- Continue condition is met
+    GOTO L6 <-- jump to loop increment
+   L4 <-- more loop body after the continue
+    ...
+   L6 <-- Loop increment
+    IINC 1 1
+    GOTO L1 <-- jump to loop condition
+   L2 <-- Loop end
