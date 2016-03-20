@@ -22,12 +22,15 @@
  */
 package autostack;
 
+import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -37,14 +40,23 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.TryCatchBlockSorter;
+import org.objectweb.asm.util.TraceClassVisitor;
 
 public class Transformer implements Opcodes, ClassFileTransformer {
+    private static final boolean TRACE = getBooleanProperty("autostack.TRACE", false);
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
     private static final String STACK = "autostack/Stack";
     
     private String packageClassPrefix;
     private boolean debugTransform;
     private boolean debugRuntime;
+
+    private static boolean getBooleanProperty(String prop, boolean def) {
+        String value = System.getProperty(prop);
+        if (value != null)
+            return value.equals("") || Boolean.valueOf(value);
+        return def;
+    }
 
     public Transformer(String packageClassPrefix) {
         this(packageClassPrefix, false, false);
@@ -57,7 +69,6 @@ public class Transformer implements Opcodes, ClassFileTransformer {
     }
 
     public byte[] transform(ClassLoader loader, final String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
-        try {
         if (className == null
                 || className.startsWith("java/")
                 || className.startsWith("sun/")
@@ -65,14 +76,14 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 || !className.startsWith(packageClassPrefix))
             return null;
         ClassReader cr = new ClassReader(classfileBuffer);
-        final class Loop {
-            int gotoJump;
-            int breakJump;
-            int endJump;
-            int loopBody;
+        final class ForLoop {
+            int loopConditionLabel;
+            int loopIncrementLabel; // <-- The label where a for-loop does its increment
+            int loopEndLabel; // <-- The label of the end of the loop
+            int loopBodyLabel; // <-- The loop body
         }
         final class Info {
-            List<Loop> loops = new ArrayList<Loop>();
+            List<ForLoop> forLoops = new ArrayList<ForLoop>();
             boolean catches;
             int firstLine = -1;
         }
@@ -85,10 +96,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
                     boolean mark, catches;
                     Map<Label, Integer> visitedLabels = new HashMap<Label, Integer>();
-                    int jumps = 0;
-                    int labels = 0;
+                    Map<Integer, Label> forwardJumps = new HashMap<Integer, Label>();
+                    int insns = 0;
                     Info info = new Info();
-                    Loop loop;
+                    ForLoop forLoop;
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
@@ -109,25 +120,47 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitLabel(Label label) {
-                        labels++;
-                        visitedLabels.put(label, labels);
+                        insns++;
+                        visitedLabels.put(label, insns);
                     }
 
                     public void visitJumpInsn(int opcode, Label label) {
-                        jumps++;
-                        if (opcode == GOTO && !visitedLabels.containsKey(label) && loop == null) {
-                            // GOTO to the condition
-                            loop = new Loop();
-                            loop.gotoJump = jumps;
-                        } else if (opcode == GOTO && !visitedLabels.containsKey(label) && loop != null) {
-                            // BREAK out of loop
-                            loop.breakJump = jumps;
-                        }
-                        if (opcode != GOTO && visitedLabels.containsKey(label)) {
-                            // conditional jump back to loop begin
-                            loop.endJump = jumps;
-                            loop.loopBody = visitedLabels.get(label);
-                            info.loops.add(loop);
+                        insns++;
+                        if (visitedLabels.containsKey(label)) {
+                            int loopBody = visitedLabels.get(label);
+                            // The simplest condition of a loop -> a jump back to somewhere.
+                            // That can be the beginning of the loop body without the condition
+                            // or it can also be the condition which then jumps out of the loop
+                            // to a further unvisited label. Everything is possible.
+                            forLoop = new ForLoop();
+                            // Remember the instruction index of the loop body label
+                            forLoop.loopBodyLabel = loopBody;
+                            // Check all forward jumps to see whether they jump out of the loop
+                            for (Map.Entry<Integer, Label> jump : forwardJumps.entrySet()) {
+                                // Check if the jump happens inside the loop
+                                if (jump.getKey() > loopBody) {
+                                    // Now check if the jump target is outside the loop
+                                    Integer jumpTarget = visitedLabels.get(jump.getValue());
+                                    if (jumpTarget == null) {
+//                                        forLoop.breakInsns.add(jump.getKey());
+                                    } else if (jumpTarget < insns) {
+                                        // This is a condition label!
+                                        // So this is where the loop handles its condition and breaks out
+                                        // of itself when the condition is not met, or jumps back to the 
+                                        // loop body if the condition is met.
+                                        forLoop.loopConditionLabel = jumpTarget;
+                                        // If we know, that we have a loop condition, then will generate the stack pop
+                                        // right BEFORE that condition label.
+                                    }
+                                }
+                            }
+                            info.forLoops.add(forLoop);
+                            forwardJumps.clear();
+                        } else {
+                            // It is a forward jump. This _could_ be a jump out of a loop
+                            // which we haven't yet found. It can likewise be an unconditional jump to
+                            // the condition of a loop. We don't know.
+                            forwardJumps.put(insns, label);
                         }
                     }
 
@@ -138,6 +171,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             info.catches = catches;
                             stackMethods.put(methodName + methodDesc, info);
                         }
+                        forwardJumps.clear();
+                        visitedLabels.clear();
                     }
                 };
                 return mv;
@@ -161,8 +196,9 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 Type[] paramTypes = Type.getArgumentTypes(desc);
                 boolean isStatic = (access & ACC_STATIC) != 0;
-                final Object[] replacedLocals = new Object[paramTypes.length + 1 + (isStatic ? 0 : 1)];
-                replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
+                final int additionalLocals = 1;
+                final Object[] replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
+                replacedLocals[replacedLocals.length - 1] = MEMORYSTACK; // MemoryStack
                 if (!isStatic)
                     replacedLocals[0] = className;
                 int var = isStatic ? 0 : 1;
@@ -196,9 +232,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
                     int lastLine = info.firstLine;
-                    int jumps = 0;
-                    int labels = 0;
-                    boolean awaitingFrame;
+                    int insns = 0;
+                    boolean awaitingFrame1, awaitingFrame2;
                     int loopIndex = 0;
 
                     public void visitInsn(int opcode) {
@@ -216,69 +251,64 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitLabel(Label label) {
-                        labels++;
-                        if (info.loops.size() > loopIndex && info.loops.get(loopIndex).loopBody == labels) {
-                            mv.visitLabel(label);
-                            awaitingFrame = true;
-                        } else {
-                            mv.visitLabel(label);
+                        insns++;
+                        Info inf = info;
+                        ForLoop forLoop = inf.forLoops.size() > loopIndex ? inf.forLoops.get(loopIndex) : null;
+                        if (forLoop != null && forLoop.loopConditionLabel == insns) {
+                            mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                            mv.visitLdcInsn("[autostack] Loop end " + className.replace('/', '.') + "." + name);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
+                            mv.visitInsn(POP);
+                        }
+                        mv.visitLabel(label);
+                        if (forLoop != null && forLoop.loopBodyLabel == insns) {
+                            // This is the loop body. We need to push frame here
+                            awaitingFrame2 = true;
                         }
                     }
 
                     public void visitJumpInsn(int opcode, Label label) {
-                        jumps++;
-                        if (info.loops.size() > loopIndex && info.loops.get(loopIndex).gotoJump == jumps) {
-                            // This is the initial GOTO to jump to the loop condition. Push here.
-                            if (debugTransform)
-                                System.out.println("[autostack]     generating loop init push at line " + lastLine);
-                            mv.visitVarInsn(ALOAD, stackVarIndex);
-                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "push", "()L" + MEMORYSTACK + ";", false);
-                            mv.visitInsn(POP);
-                        } else if (info.loops.size() > loopIndex && info.loops.get(loopIndex).breakJump == jumps) {
-                            // GOTO to break out of loop. Pop here.
-                            if (debugTransform)
-                                System.out.println("[autostack]     generating loop break pop at line " + lastLine);
-                            mv.visitVarInsn(ALOAD, stackVarIndex);
-                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
-                            mv.visitInsn(POP);
-                        } else if (info.loops.size() > loopIndex && info.loops.get(loopIndex).endJump == jumps) {
-                            // This is a loop back-jump! Pop here.
-                            if (debugTransform)
-                                System.out.println("[autostack]     generating loop next pop at line " + lastLine);
-                            mv.visitVarInsn(ALOAD, stackVarIndex);
-                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
-                            mv.visitInsn(POP);
-                            loopIndex++;
-                        }
+                        insns++;
+//                        if (info.loops.size() > loopIndex && info.loops.get(loopIndex).endJump == insns) {
+//                            // This is a loop back-jump! Pop the stack here.
+//                            if (debugTransform)
+//                                System.out.println("[autostack]     emitting loop frame reset at line " + lastLine);
+//                            mv.visitVarInsn(ALOAD, stackVarIndex);
+//                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
+//                            mv.visitInsn(POP);
+//                        }
                         mv.visitJumpInsn(opcode, label);
                     }
 
                     public void visitVarInsn(int opcode, int var) {
                         if (var >= stackVarIndex)
-                            var++;
+                            var += additionalLocals;
                         mv.visitVarInsn(opcode, var);
                     }
 
                     public void visitIincInsn(int var, int increment) {
                         if (var >= stackVarIndex)
-                            var++;
+                            var += additionalLocals;
                         mv.visitIincInsn(var, increment);
                     }
 
                     public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
                         if (type == F_FULL) {
-                            Object[] locals = new Object[local.length + 1];
+                            // Augment the locals with our [MemoryStack]
+                            Object[] locals = new Object[local.length + additionalLocals];
                             int replacementLength = replacedLocals.length;
                             System.arraycopy(replacedLocals, 0, locals, 0, replacementLength);
-                            int len = local.length - replacementLength;
-                            System.arraycopy(local, replacementLength - 1, locals, replacementLength, len);
-                            mv.visitFrame(type, nLocal + 1, locals, nStack, stack);
+                            int len = locals.length - replacementLength;
+                            System.arraycopy(local, replacementLength - additionalLocals, locals, replacementLength, len);
+                            mv.visitFrame(type, nLocal + additionalLocals, locals, nStack, stack);
                         } else
                             mv.visitFrame(type, nLocal, local, nStack, stack);
-                        if (awaitingFrame) {
-                            awaitingFrame = false;
+                        if (awaitingFrame2) {
                             if (debugTransform)
-                                System.out.println("[autostack]     generating loop next push at line " + lastLine);
+                                System.out.println("[autostack]     emitting loop frame begin at line " + lastLine);
+                            awaitingFrame2 = false;
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "push", "()L" + MEMORYSTACK + ";", false);
                             mv.visitInsn(POP);
@@ -337,7 +367,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackPush", "()L"+ MEMORYSTACK + ";", false);
                         mv.visitVarInsn(ASTORE, stackVarIndex);
                         mv.visitLabel(tryLabel);
-                        mv.visitFrame(F_APPEND, 1, new Object[] {MEMORYSTACK}, 0, null);
+                        mv.visitFrame(F_APPEND, 1, new Object[] { MEMORYSTACK }, 0, null);
                     }
 
                     public void visitMaxs(int maxStack, int maxLocals) {
@@ -361,17 +391,17 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "pop", "()L" + MEMORYSTACK + ";", false);
                         mv.visitInsn(POP);
                         mv.visitInsn(ATHROW);
-                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + 1);
+                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + additionalLocals);
                     }
                 };
                 return mv;
             }
         }, 0);
         byte[] arr = cw.toByteArray();
-        return arr;
-        } catch (Throwable t) {
-            t.printStackTrace();
-            throw new RuntimeException(t);
+        if (TRACE) {
+            cr = new ClassReader(arr);
+            cr.accept(new TraceClassVisitor(new PrintWriter(System.err)), 0);
         }
+        return arr;
     }
 }
