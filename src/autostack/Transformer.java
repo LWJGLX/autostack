@@ -161,7 +161,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                        reuseCallerStack |= "Lautostack/ReuseCallerStack;".equals(desc);
+                        if ("Lautostack/ReuseCallerStack;".equals(desc)) {
+                            reuseCallerStack = true;
+                            return null;
+                        }
                         return mv.visitAnnotation(desc, visible);
                     }
 
