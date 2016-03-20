@@ -134,7 +134,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 Type[] paramTypes = Type.getArgumentTypes(desc);
                 boolean isStatic = (access & ACC_STATIC) != 0;
-                final Object[] replacedLocals = new Object[paramTypes.length + 1 + (isStatic ? 0 : 1)];
+                final int additionalLocals = 1;
+                final Object[] replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
                 replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
                 if (!isStatic)
                     replacedLocals[0] = className;
@@ -198,12 +199,12 @@ public class Transformer implements Opcodes, ClassFileTransformer {
 
                     public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
                         if (type == F_FULL) {
-                            Object[] locals = new Object[local.length + 1];
+                            Object[] locals = new Object[local.length + additionalLocals];
                             int replacementLength = replacedLocals.length;
                             System.arraycopy(replacedLocals, 0, locals, 0, replacementLength);
-                            int len = local.length - replacementLength;
-                            System.arraycopy(local, replacementLength - 1, locals, replacementLength, len);
-                            mv.visitFrame(type, nLocal + 1, locals, nStack, stack);
+                            int len = locals.length - replacementLength;
+                            System.arraycopy(local, replacementLength - additionalLocals, locals, replacementLength, len);
+                            mv.visitFrame(type, nLocal + additionalLocals, locals, nStack, stack);
                         } else
                             mv.visitFrame(type, nLocal, local, nStack, stack);
                     }
