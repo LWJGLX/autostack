@@ -134,7 +134,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (mark) {
                         	if (notransform) {
                         		if (debugTransform)
-                        			System.out.println("[autostack]   excluded method from transformation: " + className.replace('/', '.') + "." + methodName);
+                        			System.out.println("[autostack]   will not transform method: " + className.replace('/', '.') + "." + methodName);
                         	} else {
 	                            if (debugTransform)
 	                                System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);

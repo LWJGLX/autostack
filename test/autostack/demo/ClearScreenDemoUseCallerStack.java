@@ -57,7 +57,9 @@ import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 import org.lwjgl.vulkan.VkViewport;
 
+import autostack.NoTransform;
 import autostack.UseCallerStack;
+import autostack.UseNewStack;
 
 /**
  * Renders a simple cornflower blue image on a GLFW window with Vulkan.
@@ -65,10 +67,14 @@ import autostack.UseCallerStack;
  * This is a port of the lwjgl3-demos Vulkan ClearScreenDemo, but uses autostack.
  * <p>
  * Start the JVM with: -javaagent:target/autostack.jar
+ * <p>
+ * This class declares to use the caller stack for every method. So no method will do a stack push/pop unless
+ * annotated with {@link UseNewStack}.
  * 
  * @author Kai Burjack
  */
-public class ClearScreenDemo {
+@UseCallerStack
+public class ClearScreenDemoUseCallerStack {
 
     private static final boolean validation = Boolean.parseBoolean(System.getProperty("vulkan.validation", "false"));
 
@@ -349,6 +355,7 @@ public class ClearScreenDemo {
         return commandPool;
     }
 
+    @NoTransform
     private static VkQueue createDeviceQueue(VkDevice device, int queueFamilyIndex) {
         PointerBuffer pQueue = stackMallocPointer(1);
         vkGetDeviceQueue(device, queueFamilyIndex, 0, pQueue);
@@ -467,7 +474,6 @@ public class ClearScreenDemo {
         long[] imageViews;
     }
 
-    @UseCallerStack
     private static Swapchain createSwapChain(VkDevice device, VkPhysicalDevice physicalDevice, long surface, long oldSwapChain, VkCommandBuffer commandBuffer, int width,
             int height, int colorFormat, int colorSpace) {
         int err;
@@ -667,7 +673,6 @@ public class ClearScreenDemo {
         return framebuffers;
     }
 
-    @UseCallerStack
     private static void submitCommandBuffer(VkQueue queue, VkCommandBuffer commandBuffer) {
         if (commandBuffer == null || commandBuffer.address() == NULL)
             return;
@@ -683,7 +688,6 @@ public class ClearScreenDemo {
         }
     }
 
-    @UseCallerStack
     private static VkCommandBuffer[] createRenderCommandBuffers(VkDevice device, long commandPool, long[] framebuffers, long renderPass, int width, int height) {
         // Create the render command buffers (one command buffer per framebuffer image)
         VkCommandBufferAllocateInfo cmdBufAllocateInfo = VkCommandBufferAllocateInfo.callocStack()
@@ -794,6 +798,7 @@ public class ClearScreenDemo {
         return renderCommandBuffers;
     }
 
+    @UseNewStack
     private static void submitPostPresentBarrier(long image, VkCommandBuffer commandBuffer, VkQueue queue) {
         VkCommandBufferBeginInfo cmdBufInfo = VkCommandBufferBeginInfo.callocStack()
                 .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO)
@@ -846,7 +851,7 @@ public class ClearScreenDemo {
 
     static {
         /* Configure LWJGL stack. We don't even need a whole Kilobyte. */
-        Configuration.STACK_SIZE.set(1);
+        Configuration.STACK_SIZE.set(3);
     }
 
     public static void main(String[] args) {
