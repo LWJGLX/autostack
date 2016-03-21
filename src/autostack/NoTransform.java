@@ -31,7 +31,7 @@ import java.lang.annotation.Target;
  * Methods marked with this annotation will not be transformed in any way.
  * <p>
  * If this annotation is used on a class then all methods declared by this will have the
- * specified behaviour, which can be overridden per method.
+ * specified behaviour.
  * <p>
  * Using the default behaviour in Autostack, methods are automatically considered for 
  * transformation when they pass the package/class prefix filter and use some LWJGL stack methods.
