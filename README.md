@@ -18,7 +18,28 @@ Start the JVM with the VM argument:
 
 Optionally, to have optimal loading time, use a package prefix to tell Autostack where to search for classes to transform:
 
-  `-javaagent:/path/to/autostack.jar=my.package`
+  `-javaagent:/path/to/autostack.jar=my.app`
+
+You can also filter by multiple packages/class prefixes:
+
+  `-javaagent:/path/to/autostack.jar=my.app,my.other.app,another.app`
+
+Controlling stack lifecycle
+---------------------------
+
+By default, every method will create its own stack frame and stack allocations done in those methods will not survive past the method invocation.
+To avoid creating a new stack frame for a particular method, annotate that method with `@UseCallerStack`:
+```Java
+@UseCallerStack
+public Struct allocateOnCallerStack() {
+  return SomeStruct.callocStack()
+                   .setSomeProperty(value)
+                   .setSomeOtherProperty(otherValue);
+}
+```
+This will result in the memory allocated for `SomeStruct` to be still available at every caller of this method.
+
+You can also override the stack lifecycle for all methods in a particular class by annotating the class with `@UseCallerStack`. This will apply that behaviour to all methods declared by this class.
 
 Build-time instrumentation
 --------------------------
