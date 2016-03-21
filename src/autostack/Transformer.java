@@ -102,7 +102,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
             if (!className.startsWith(pack))
                 return null;
         ClassReader cr = new ClassReader(classfileBuffer);
-        final Map<String, Boolean> stackMethods = new HashMap<String, Boolean>();
+        final Map<String, Integer> stackMethods = new HashMap<String, Integer>();
         // Scan all methods that need auto-stack
         if (debugTransform)
             System.out.println("[autostack] scanning methods in class: " + className.replace('/', '.'));
@@ -131,15 +131,18 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitEnd() {
-                        if (mark) {
+                        int flag = 0;
+                        if (mark || notransform) {
                             if (notransform) {
+                                flag |= 2;
                                 if (debugTransform)
                                     System.out.println("[autostack]   will not transform method: " + className.replace('/', '.') + "." + methodName);
                             } else {
+                                flag |= catches ? 1 : 0;
                                 if (debugTransform)
                                     System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);
-                                stackMethods.put(methodName + methodDesc, catches);
                             }
+                            stackMethods.put(methodName + methodDesc, Integer.valueOf(flag));
                         }
                     }
                 };
@@ -173,16 +176,17 @@ public class Transformer implements Opcodes, ClassFileTransformer {
 
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-                Boolean info = stackMethods.get(name + desc);
+                Integer info = stackMethods.get(name + desc);
                 if (info == null)
                     return mv;
-                boolean catches = info.booleanValue();
+                boolean catches = (info.intValue() & 1) == 1;
                 if (debugTransform)
                     System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 final Type[] paramTypes = Type.getArgumentTypes(desc);
                 final boolean isStatic = (access & ACC_STATIC) != 0;
+                final boolean notransform = (info.intValue() & 2) == 2;
                 mv = new MethodVisitor(ASM5, mv) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
@@ -195,6 +199,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     Object[] replacedLocals;
 
                     public void visitInsn(int opcode) {
+                        if (notransform) {
+                            mv.visitInsn(opcode);
+                            return;
+                        }
                         if (opcode >= IRETURN && opcode <= RETURN && newStack) {
                             if (debugRuntime) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
@@ -210,32 +218,50 @@ public class Transformer implements Opcodes, ClassFileTransformer {
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                         if ("Lautostack/UseCallerStack;".equals(desc)) {
-                            if (debugTransform)
-                                System.out.println("[autostack]     method declares to use caller stack");
-                            newStack = false;
+                            if (!notransform) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     method declares to use caller stack");
+                                newStack = false;
+                            }
                             return null;
                         } else if ("Lautostack/UseNewStack;".equals(desc)) {
-                            if (debugTransform)
-                                System.out.println("[autostack]     method declares to use new stack");
-                            newStack = true;
+                            if (!notransform) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     method declares to use new stack");
+                                newStack = true;
+                            }
+                            return null;
+                        } else if ("Lautostack/NoTransform;".equals(desc)) {
                             return null;
                         }
                         return mv.visitAnnotation(desc, visible);
                     }
 
                     public void visitVarInsn(int opcode, int var) {
+                        if (notransform) {
+                            mv.visitVarInsn(opcode, var);
+                            return;
+                        }
                         if (var >= firstAdditionalLocal)
                             var += additionalLocals;
                         mv.visitVarInsn(opcode, var);
                     }
 
                     public void visitIincInsn(int var, int increment) {
+                        if (notransform) {
+                            mv.visitIincInsn(var, increment);
+                            return;
+                        }
                         if (var >= firstAdditionalLocal)
                             var += additionalLocals;
                         mv.visitIincInsn(var, increment);
                     }
 
                     public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
+                        if (notransform) {
+                            mv.visitFrame(type, nLocal, local, nStack, stack);
+                            return;
+                        }
                         if (type == F_FULL) {
                             Object[] locals = new Object[local.length + additionalLocals];
                             int replacementLength = replacedLocals.length;
@@ -248,13 +274,17 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitLocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
+                        if (notransform) {
+                            mv.visitLocalVariable(className, desc, signature, start, end, index);
+                            return;
+                        }
                         if (index >= firstAdditionalLocal)
                             index += additionalLocals;
                         mv.visitLocalVariable(name, desc, signature, start, end, index);
                     }
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-                        if (opcode != INVOKESTATIC) {
+                        if (opcode != INVOKESTATIC || notransform) {
                             mv.visitMethodInsn(opcode, owner, name, desc, itf);
                             return;
                         }
@@ -294,6 +324,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitCode() {
+                        if (notransform) {
+                            mv.visitCode();
+                            return;
+                        }
                         additionalLocals = newStack ? 2 : 1;
                         replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
                         if (!newStack) {
@@ -380,6 +414,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitMaxs(int maxStack, int maxLocals) {
+                        if (notransform) {
+                            mv.visitMaxs(maxStack, maxLocals);
+                            return;
+                        }
                         if (newStack) {
                             mv.visitLabel(finallyLabel);
                             mv.visitFrame(F_FULL, replacedLocals.length, replacedLocals, 1, new Object[] {"java/lang/Throwable"});
