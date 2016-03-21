@@ -916,7 +916,6 @@ public class ClearScreenDemoUseNewStack {
             int width;
             int height;
 
-            @UseNewStack
             void recreate() {
                 // Begin the setup command buffer (the one we will use for swapchain/framebuffer creation)
                 VkCommandBufferBeginInfo cmdBufInfo = VkCommandBufferBeginInfo.callocStack()
