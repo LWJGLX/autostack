@@ -177,32 +177,65 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     return;
                 }
                 /* Generate simple synthetic "compare stack pointers and throw if not equal" method */
-                MethodVisitor mv = cv.visitMethod(ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC, "$checkStackPointer$", "(II)V", null, new String[] {"java/lang/AssertionError"});
-                mv.visitCode();
-                mv.visitVarInsn(ILOAD, 0);
-                mv.visitVarInsn(ILOAD, 1);
-                Label equalLabel = new Label();
-                mv.visitJumpInsn(IF_ICMPEQ, equalLabel);
-                mv.visitTypeInsn(NEW, "java/lang/AssertionError");
-                mv.visitInsn(DUP);
-                mv.visitTypeInsn(NEW, "java/lang/StringBuilder");
-                mv.visitInsn(DUP);
-                mv.visitLdcInsn("Stack pointers differ: ");
-                mv.visitMethodInsn(INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(Ljava/lang/String;)V", false);
-                mv.visitVarInsn(ILOAD, 0);
-                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
-                mv.visitLdcInsn(" != ");
-                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
-                mv.visitVarInsn(ILOAD, 1);
-                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
-                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
-                mv.visitMethodInsn(INVOKESPECIAL, "java/lang/AssertionError", "<init>", "(Ljava/lang/Object;)V", false);
-                mv.visitInsn(ATHROW);
-                mv.visitLabel(equalLabel);
-                mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
-                mv.visitInsn(RETURN);
-                mv.visitMaxs(5, 2);
-                mv.visitEnd();
+                MethodVisitor mv = cv.visitMethod(ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC, "$checkStack$", "(II)V", null, new String[] {"java/lang/AssertionError"});
+                {
+                    mv.visitCode();
+                    mv.visitVarInsn(ILOAD, 0);
+                    mv.visitVarInsn(ILOAD, 1);
+                    Label l0 = new Label();
+                    mv.visitJumpInsn(IF_ICMPEQ, l0);
+                    mv.visitTypeInsn(NEW, "java/lang/IllegalStateException");
+                    mv.visitInsn(DUP);
+                    mv.visitTypeInsn(NEW, "java/lang/StringBuilder");
+                    mv.visitInsn(DUP);
+                    mv.visitLdcInsn("Stack pointers differ: ");
+                    mv.visitMethodInsn(INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(Ljava/lang/String;)V", false);
+                    mv.visitVarInsn(ILOAD, 0);
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
+                    mv.visitLdcInsn(" != ");
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+                    mv.visitVarInsn(ILOAD, 1);
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
+                    mv.visitMethodInsn(INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/Object;)V", false);
+                    mv.visitInsn(ATHROW);
+                    mv.visitLabel(l0);
+                    mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+                    mv.visitInsn(RETURN);
+                    mv.visitMaxs(5, 2);
+                    mv.visitEnd();
+                }
+
+                mv = cv.visitMethod(ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC, "$checkStackWithThrowable$", "(Ljava/lang/Throwable;II)Ljava/lang/Throwable;", null, null);
+                {
+                    mv.visitCode();
+                    mv.visitVarInsn(ILOAD, 1);
+                    mv.visitVarInsn(ILOAD, 2);
+                    Label l0 = new Label();
+                    mv.visitJumpInsn(IF_ICMPEQ, l0);
+                    mv.visitTypeInsn(NEW, "java/lang/IllegalStateException");
+                    mv.visitInsn(DUP);
+                    mv.visitTypeInsn(NEW, "java/lang/StringBuilder");
+                    mv.visitInsn(DUP);
+                    mv.visitLdcInsn("Stack pointers differ: ");
+                    mv.visitMethodInsn(INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(Ljava/lang/String;)V", false);
+                    mv.visitVarInsn(ILOAD, 1);
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
+                    mv.visitLdcInsn(" != ");
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+                    mv.visitVarInsn(ILOAD, 2);
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
+                    mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
+                    mv.visitVarInsn(ALOAD, 0);
+                    mv.visitMethodInsn(INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;Ljava/lang/Throwable;)V", false);
+                    mv.visitInsn(ARETURN);
+                    mv.visitLabel(l0);
+                    mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+                    mv.visitVarInsn(ALOAD, 0);
+                    mv.visitInsn(ARETURN);
+                    mv.visitMaxs(5, 3);
+                    mv.visitEnd();
+                }
             }
 
             public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
@@ -263,7 +296,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 mv.visitVarInsn(ILOAD, stackPointerVarIndex);
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
-                                mv.visitMethodInsn(INVOKESTATIC, className, "$checkStackPointer$", "(II)V", false);
+                                mv.visitMethodInsn(INVOKESTATIC, className, "$checkStack$", "(II)V", false);
                             }
                         }
                         mv.visitInsn(opcode);
@@ -492,6 +525,12 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitVarInsn(ILOAD, stackPointerVarIndex);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "setPointer", "(I)V", false);
+                            }
+                            if (checkStack) {
+                                mv.visitVarInsn(ILOAD, stackPointerVarIndex);
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
+                                mv.visitMethodInsn(INVOKESTATIC, className, "$checkStackWithThrowable$", "(Ljava/lang/Throwable;II)Ljava/lang/Throwable;", false);
                             }
                             mv.visitInsn(ATHROW);
                         }
