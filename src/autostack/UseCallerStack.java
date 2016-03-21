@@ -30,10 +30,15 @@ import java.lang.annotation.Target;
 /**
  * Methods marked with this annotation will not push/pop a new stack frame, but will
  * work on the stack frame set up by the caller.
+ * <p>
+ * If this annotation is used on a class then all methods declared by this will have the
+ * specified behaviour, which can be overridden per method.
+ * <p>
+ * Using the default behaviour in Autostack, methods must be explicitly annotated with
+ * this annotation to reuse the caller stack, unless the default behaviour is overridden.
  * 
  * @author Kai Burjack
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.METHOD})
-public @interface ReuseCallerStack {
-}
+@Target({ElementType.METHOD, ElementType.TYPE})
+public @interface UseCallerStack {}

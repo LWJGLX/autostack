@@ -25,7 +25,9 @@ package autostack;
 import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.objectweb.asm.AnnotationVisitor;
@@ -42,16 +44,30 @@ import org.objectweb.asm.util.TraceClassVisitor;
 public class Transformer implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
     
-    private String packageClassPrefix;
+    private List<String> packages;
     private boolean debugTransform;
     private boolean debugRuntime;
     private boolean trace;
+    private boolean defaultNewStack = true;
 
-    public Transformer(String packageClassPrefix) {
-        this.packageClassPrefix = packageClassPrefix != null ? packageClassPrefix.replace('.', '/') : "";
+    public Transformer(List<String> packages) {
+    	this.packages = packages != null ? packages : Collections.<String>emptyList();
     }
 
-    public boolean isDebugTransform() {
+    public boolean isDefaultNewStack() {
+		return defaultNewStack;
+	}
+
+	public void setDefaultNewStack(boolean defaultNewStack) {
+        if (debugTransform)
+        	if (defaultNewStack)
+        		System.out.println("[autostack] default to creating new stack for each method in every transformed class");
+        	else
+                System.out.println("[autostack] default to reusing caller stack for each method in every transformed class");
+		this.defaultNewStack = defaultNewStack;
+	}
+
+	public boolean isDebugTransform() {
         return debugTransform;
     }
 
@@ -80,14 +96,16 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         if (className == null
                 || className.startsWith("java/")
                 || className.startsWith("sun/")
-                || className.startsWith("org/lwjgl/")
-                || !className.startsWith(packageClassPrefix))
+                || className.startsWith("org/lwjgl/"))
             return null;
+        for (String pack : packages)
+        	if (!className.startsWith(pack))
+        		return null;
         ClassReader cr = new ClassReader(classfileBuffer);
         final Map<String, Boolean> stackMethods = new HashMap<String, Boolean>();
         // Scan all methods that need auto-stack
         if (debugTransform)
-            System.out.println("[autostack] Scan methods in class: " + className.replace('/', '.'));
+            System.out.println("[autostack] scanning methods in class: " + className.replace('/', '.'));
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
@@ -109,7 +127,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     public void visitEnd() {
                         if (mark) {
                             if (debugTransform)
-                                System.out.println("[autostack]   Will transform method: " + className.replace('/', '.') + "." + methodName);
+                                System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);
                             stackMethods.put(methodName + methodDesc, catches);
                         }
                     }
@@ -121,8 +139,27 @@ public class Transformer implements Opcodes, ClassFileTransformer {
             return null;
 
         // Now, transform all such methods
+        if (debugTransform)
+            System.out.println("[autostack] transforming methods in class: " + className.replace('/', '.'));
         ClassWriter cw = new ClassWriter(cr, 0);
         cr.accept(new ClassVisitor(ASM5, cw) {
+        	boolean classDefaultNewStack = defaultNewStack;
+
+        	public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+                if ("Lautostack/UseCallerStack;".equals(desc)) {
+                	if (debugTransform)
+                		System.out.println("[autostack]    class declares to use caller stack for all methods, unless overridden by method");
+                	classDefaultNewStack = false;
+                    return null;
+                } else if ("Lautostack/UseNewStack;".equals(desc)) {
+                	if (debugTransform)
+                		System.out.println("[autostack]    class declares to use new stack for all methods, unless overridden by method");
+                	classDefaultNewStack = true;
+                    return null;
+                }
+        		return cv.visitAnnotation(desc, visible);
+        	}
+
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
                 Boolean info = stackMethods.get(name + desc);
@@ -130,7 +167,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     return mv;
                 boolean catches = info.booleanValue();
                 if (debugTransform)
-                    System.out.println("[autostack]   Transforming method: " + className.replace('/', '.') + "." + name);
+                    System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 final Type[] paramTypes = Type.getArgumentTypes(desc);
@@ -139,7 +176,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
                     int lastLine = 0;
-                    boolean reuseCallerStack;
+                    boolean newStack = classDefaultNewStack;
                     int stackVarIndex;
                     int stackPointerVarIndex;
                     int firstAdditionalLocal;
@@ -147,10 +184,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     Object[] replacedLocals;
 
                     public void visitInsn(int opcode) {
-                        if (opcode >= IRETURN && opcode <= RETURN && !reuseCallerStack) {
+                        if (opcode >= IRETURN && opcode <= RETURN && newStack) {
                             if (debugRuntime) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                                mv.visitLdcInsn("[autostack] Restore stack pointer because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
+                                mv.visitLdcInsn("[autostack] restore stack pointer because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
                             mv.visitVarInsn(ALOAD, stackVarIndex);
@@ -161,8 +198,15 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                        if ("Lautostack/ReuseCallerStack;".equals(desc)) {
-                            reuseCallerStack = true;
+                        if ("Lautostack/UseCallerStack;".equals(desc)) {
+                        	if (debugTransform)
+                        		System.out.println("[autostack]     method declares to use caller stack");
+                            newStack = false;
+                            return null;
+                        } else if ("Lautostack/UseNewStack;".equals(desc)) {
+                        	if (debugTransform)
+                        		System.out.println("[autostack]     method declares to use new stack");
+                            newStack = true;
                             return null;
                         }
                         return mv.visitAnnotation(desc, visible);
@@ -239,9 +283,9 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitCode() {
-                        additionalLocals = reuseCallerStack ? 1 : 2;
+                        additionalLocals = newStack ? 2 : 1;
                         replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
-                        if (reuseCallerStack) {
+                        if (!newStack) {
                             replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
                         } else {
                             replacedLocals[replacedLocals.length - 2] = MEMORYSTACK;
@@ -279,10 +323,10 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         stackVarIndex = var;
                         stackPointerVarIndex = var + 1;
                         mv.visitCode();
-                        if (!reuseCallerStack) {
+                        if (newStack) {
                             if (debugRuntime) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                                mv.visitLdcInsn("[autostack] Save stack pointer at begin of " + className.replace('/', '.') + "." + name);
+                                mv.visitLdcInsn("[autostack] save stack pointer at begin of " + className.replace('/', '.') + "." + name);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
                             mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
@@ -301,13 +345,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitMaxs(int maxStack, int maxLocals) {
-                        if (!reuseCallerStack) {
+                        if (newStack) {
                             mv.visitLabel(finallyLabel);
                             mv.visitFrame(F_FULL, replacedLocals.length, replacedLocals, 1, new Object[] {"java/lang/Throwable"});
                             mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, null);
                             if (debugRuntime) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                                mv.visitLdcInsn("[autostack] Restore stack pointer because of throw [");
+                                mv.visitLdcInsn("[autostack] restore stack pointer because of throw [");
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
                                 mv.visitInsn(DUP);
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");

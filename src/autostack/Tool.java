@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
@@ -51,7 +52,7 @@ public class Tool {
         }
         File inFile = new File(args[0]);
         File outFile = new File(args[1]);
-        Transformer transformer = new Transformer("");
+        Transformer transformer = new Transformer(Collections.<String>emptyList());
         transformer.setDebugRuntime(DEBUG_RUNTIME);
         transformer.setDebugTransform(DEBUG_TRANSFORM);
 

@@ -57,7 +57,7 @@ import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 import org.lwjgl.vulkan.VkViewport;
 
-import autostack.ReuseCallerStack;
+import autostack.UseCallerStack;
 
 /**
  * Renders a simple cornflower blue image on a GLFW window with Vulkan.
@@ -467,7 +467,7 @@ public class ClearScreenDemo {
         long[] imageViews;
     }
 
-    @ReuseCallerStack
+    @UseCallerStack
     private static Swapchain createSwapChain(VkDevice device, VkPhysicalDevice physicalDevice, long surface, long oldSwapChain, VkCommandBuffer commandBuffer, int width,
             int height, int colorFormat, int colorSpace) {
         int err;
@@ -667,7 +667,7 @@ public class ClearScreenDemo {
         return framebuffers;
     }
 
-    @ReuseCallerStack
+    @UseCallerStack
     private static void submitCommandBuffer(VkQueue queue, VkCommandBuffer commandBuffer) {
         if (commandBuffer == null || commandBuffer.address() == NULL)
             return;
@@ -683,7 +683,7 @@ public class ClearScreenDemo {
         }
     }
 
-    @ReuseCallerStack
+    @UseCallerStack
     private static VkCommandBuffer[] createRenderCommandBuffers(VkDevice device, long commandPool, long[] framebuffers, long renderPass, int width, int height) {
         // Create the render command buffers (one command buffer per framebuffer image)
         VkCommandBufferAllocateInfo cmdBufAllocateInfo = VkCommandBufferAllocateInfo.callocStack()

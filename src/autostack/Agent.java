@@ -23,6 +23,8 @@
 package autostack;
 
 import java.lang.instrument.Instrumentation;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Agent {
 
@@ -38,10 +40,26 @@ public class Agent {
     }
 
     public static void premain(String agentArguments, Instrumentation instrumentation) {
-        Transformer transformer = new Transformer(agentArguments);
+    	if (agentArguments == null)
+    		agentArguments = "";
+    	String[] splitted = agentArguments.split(",");
+    	List<String> packs = new ArrayList<String>();
+    	boolean defaultNewStack = true;
+    	for (String s : splitted) {
+    		if (s.startsWith("-")) {
+    			if ("-usecallerstack".equals(s))
+    				defaultNewStack = false;
+    			else if ("-usenewstack".equals(s))
+    				defaultNewStack = true;
+    		}
+    		else
+    			packs.add(s.replace('.', '/'));
+    	}
+        Transformer transformer = new Transformer(packs);
         transformer.setDebugRuntime(DEBUG_RUNTIME);
         transformer.setDebugTransform(DEBUG_TRANSFORM);
         transformer.setTrace(TRACE);
+        transformer.setDefaultNewStack(defaultNewStack);
         instrumentation.addTransformer(transformer);
     }
 
