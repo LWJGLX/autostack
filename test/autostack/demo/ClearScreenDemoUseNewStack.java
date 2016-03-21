@@ -850,7 +850,7 @@ public class ClearScreenDemoUseNewStack {
 
     static {
         /* Configure LWJGL stack. We don't even need a whole Kilobyte. */
-        Configuration.STACK_SIZE.set(3);
+        Configuration.STACK_SIZE.set(1);
     }
 
     public static void main(String[] args) {
