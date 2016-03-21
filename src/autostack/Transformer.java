@@ -197,7 +197,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     mv.visitVarInsn(ILOAD, 1);
                     mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
                     mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
-                    mv.visitMethodInsn(INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/Object;)V", false);
+                    mv.visitMethodInsn(INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false);
                     mv.visitInsn(ATHROW);
                     mv.visitLabel(l0);
                     mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
