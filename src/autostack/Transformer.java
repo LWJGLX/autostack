@@ -300,6 +300,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             switch (type.getSort()) {
                             case Type.INT:
                             case Type.BYTE:
+                            case Type.BOOLEAN:
                             case Type.SHORT:
                             case Type.CHAR:
                                 replacedLocals[t] = INTEGER;
@@ -317,6 +318,9 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             case Type.ARRAY:
                                 replacedLocals[t] = type.getInternalName();
                                 break;
+                            default:
+                            	System.err.println("Unhandle parameter type: " + type);
+                            	throw new RuntimeException("Unhandle parameter type: " + type);
                             }
                         }
                         firstAdditionalLocal = var;
