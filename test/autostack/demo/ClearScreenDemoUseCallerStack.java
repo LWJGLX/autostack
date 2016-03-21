@@ -850,7 +850,7 @@ public class ClearScreenDemoUseCallerStack {
     private static VkCommandBuffer[] renderCommandBuffers;
 
     static {
-        /* Configure LWJGL stack. We don't even need a whole Kilobyte. */
+        /* Configure LWJGL stack. */
         Configuration.STACK_SIZE.set(3);
     }
 
