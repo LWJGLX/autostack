@@ -148,12 +148,12 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         	public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                 if ("Lautostack/UseCallerStack;".equals(desc)) {
                 	if (debugTransform)
-                		System.out.println("[autostack]    class declares to use caller stack for all methods, unless overridden by method");
+                		System.out.println("[autostack]   class declares to use caller stack for all methods, unless overridden by method");
                 	classDefaultNewStack = false;
                     return null;
                 } else if ("Lautostack/UseNewStack;".equals(desc)) {
                 	if (debugTransform)
-                		System.out.println("[autostack]    class declares to use new stack for all methods, unless overridden by method");
+                		System.out.println("[autostack]   class declares to use new stack for all methods, unless overridden by method");
                 	classDefaultNewStack = true;
                     return null;
                 }
