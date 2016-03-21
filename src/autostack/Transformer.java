@@ -51,23 +51,23 @@ public class Transformer implements Opcodes, ClassFileTransformer {
     private boolean defaultNewStack = true;
 
     public Transformer(List<String> packages) {
-    	this.packages = packages != null ? packages : Collections.<String>emptyList();
+        this.packages = packages != null ? packages : Collections.<String>emptyList();
     }
 
     public boolean isDefaultNewStack() {
-		return defaultNewStack;
-	}
+        return defaultNewStack;
+    }
 
-	public void setDefaultNewStack(boolean defaultNewStack) {
+    public void setDefaultNewStack(boolean defaultNewStack) {
         if (debugTransform)
-        	if (defaultNewStack)
-        		System.out.println("[autostack] default to creating new stack for each method in every transformed class");
-        	else
+            if (defaultNewStack)
+                System.out.println("[autostack] default to creating new stack for each method in every transformed class");
+            else
                 System.out.println("[autostack] default to reusing caller stack for each method in every transformed class");
-		this.defaultNewStack = defaultNewStack;
-	}
+        this.defaultNewStack = defaultNewStack;
+    }
 
-	public boolean isDebugTransform() {
+    public boolean isDebugTransform() {
         return debugTransform;
     }
 
@@ -99,8 +99,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                 || className.startsWith("org/lwjgl/"))
             return null;
         for (String pack : packages)
-        	if (!className.startsWith(pack))
-        		return null;
+            if (!className.startsWith(pack))
+                return null;
         ClassReader cr = new ClassReader(classfileBuffer);
         final Map<String, Boolean> stackMethods = new HashMap<String, Boolean>();
         // Scan all methods that need auto-stack
@@ -112,9 +112,9 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     boolean mark, catches, notransform;
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                    	if ("Lautostack/NoTransform;".equals(desc))
-                    		notransform = true;
-                    	return null;
+                        if ("Lautostack/NoTransform;".equals(desc))
+                            notransform = true;
+                        return null;
                     }
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
@@ -132,14 +132,14 @@ public class Transformer implements Opcodes, ClassFileTransformer {
 
                     public void visitEnd() {
                         if (mark) {
-                        	if (notransform) {
-                        		if (debugTransform)
-                        			System.out.println("[autostack]   will not transform method: " + className.replace('/', '.') + "." + methodName);
-                        	} else {
-	                            if (debugTransform)
-	                                System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);
-	                            stackMethods.put(methodName + methodDesc, catches);
-                        	}
+                            if (notransform) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]   will not transform method: " + className.replace('/', '.') + "." + methodName);
+                            } else {
+                                if (debugTransform)
+                                    System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);
+                                stackMethods.put(methodName + methodDesc, catches);
+                            }
                         }
                     }
                 };
@@ -154,22 +154,22 @@ public class Transformer implements Opcodes, ClassFileTransformer {
             System.out.println("[autostack] transforming methods in class: " + className.replace('/', '.'));
         ClassWriter cw = new ClassWriter(cr, 0);
         cr.accept(new ClassVisitor(ASM5, cw) {
-        	boolean classDefaultNewStack = defaultNewStack;
+            boolean classDefaultNewStack = defaultNewStack;
 
-        	public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+            public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                 if ("Lautostack/UseCallerStack;".equals(desc)) {
-                	if (debugTransform)
-                		System.out.println("[autostack]   class declares to use caller stack for all methods, unless overridden by method");
-                	classDefaultNewStack = false;
+                    if (debugTransform)
+                        System.out.println("[autostack]   class declares to use caller stack for all methods, unless overridden by method");
+                    classDefaultNewStack = false;
                     return null;
                 } else if ("Lautostack/UseNewStack;".equals(desc)) {
-                	if (debugTransform)
-                		System.out.println("[autostack]   class declares to use new stack for all methods, unless overridden by method");
-                	classDefaultNewStack = true;
+                    if (debugTransform)
+                        System.out.println("[autostack]   class declares to use new stack for all methods, unless overridden by method");
+                    classDefaultNewStack = true;
                     return null;
                 }
-        		return cv.visitAnnotation(desc, visible);
-        	}
+                return cv.visitAnnotation(desc, visible);
+            }
 
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
@@ -210,13 +210,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                         if ("Lautostack/UseCallerStack;".equals(desc)) {
-                        	if (debugTransform)
-                        		System.out.println("[autostack]     method declares to use caller stack");
+                            if (debugTransform)
+                                System.out.println("[autostack]     method declares to use caller stack");
                             newStack = false;
                             return null;
                         } else if ("Lautostack/UseNewStack;".equals(desc)) {
-                        	if (debugTransform)
-                        		System.out.println("[autostack]     method declares to use new stack");
+                            if (debugTransform)
+                                System.out.println("[autostack]     method declares to use new stack");
                             newStack = true;
                             return null;
                         }
@@ -237,7 +237,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
 
                     public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
                         if (type == F_FULL) {
-                        	Object[] locals = new Object[local.length + additionalLocals];
+                            Object[] locals = new Object[local.length + additionalLocals];
                             int replacementLength = replacedLocals.length;
                             System.arraycopy(replacedLocals, 0, locals, 0, replacementLength);
                             int len = locals.length - replacementLength;
@@ -330,8 +330,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 replacedLocals[t] = type.getInternalName();
                                 break;
                             default:
-                            	System.err.println("Unhandle parameter type: " + type);
-                            	throw new RuntimeException("Unhandle parameter type: " + type);
+                                System.err.println("Unhandle parameter type: " + type);
+                                throw new RuntimeException("Unhandle parameter type: " + type);
                             }
                         }
                         firstAdditionalLocal = var;
@@ -339,21 +339,41 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         stackPointerVarIndex = var + 1;
                         mv.visitCode();
                         if (newStack) {
-                            if (debugRuntime) {
-                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-                                mv.visitLdcInsn("[autostack] save stack pointer at begin of " + className.replace('/', '.') + "." + name);
-                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
-                            }
                             mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
                             mv.visitInsn(DUP);
                             mv.visitVarInsn(ASTORE, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
                             mv.visitVarInsn(ISTORE, stackPointerVarIndex);
+                            if (debugRuntime) {
+                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                                mv.visitLdcInsn("[autostack] save stack pointer [");
+                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
+                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                                mv.visitVarInsn(ILOAD, stackPointerVarIndex);
+                                mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "toString", "(I)Ljava/lang/String;", false);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
+                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                                mv.visitLdcInsn("] at begin of " + className.replace('/', '.') + "." + name);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
+                            }
                             mv.visitLabel(tryLabel);
                             mv.visitFrame(F_APPEND, 2, new Object[] {MEMORYSTACK, INTEGER}, 0, null);
                         } else {
                             mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
                             mv.visitVarInsn(ASTORE, stackVarIndex);
+                            if (debugRuntime) {
+                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                                mv.visitLdcInsn("[autostack] current stack pointer is [");
+                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
+                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
+                                mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "toString", "(I)Ljava/lang/String;", false);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
+                                mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+                                mv.visitLdcInsn("] at begin of " + className.replace('/', '.') + "." + name);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
+                            }
                             mv.visitLabel(tryLabel);
                             mv.visitFrame(F_APPEND, 1, new Object[] {MEMORYSTACK}, 0, null);
                         }
