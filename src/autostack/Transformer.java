@@ -49,9 +49,18 @@ public class Transformer implements Opcodes, ClassFileTransformer {
     private boolean debugRuntime;
     private boolean trace;
     private boolean defaultNewStack = true;
+    private boolean checkStack;
 
     public Transformer(List<String> packages) {
         this.packages = packages != null ? packages : Collections.<String>emptyList();
+    }
+
+    public boolean isCheckStack() {
+        return checkStack;
+    }
+
+    public void setCheckStack(boolean checkStack) {
+        this.checkStack = checkStack;
     }
 
     public boolean isDefaultNewStack() {
@@ -138,6 +147,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 if (debugTransform)
                                     System.out.println("[autostack]   will not transform method: " + className.replace('/', '.') + "." + methodName);
                             } else {
+                                if (checkStack)
+                                    flag |= 4;
                                 flag |= catches ? 1 : 0;
                                 if (debugTransform)
                                     System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);
@@ -158,6 +169,41 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         ClassWriter cw = new ClassWriter(cr, 0);
         cr.accept(new ClassVisitor(ASM5, cw) {
             boolean classDefaultNewStack = defaultNewStack;
+            
+            @Override
+            public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+                cv.visit(version, access, name, signature, superName, interfaces);
+                if (!checkStack) {
+                    return;
+                }
+                /* Generate simple synthetic "compare stack pointers and throw if not equal" method */
+                MethodVisitor mv = cv.visitMethod(ACC_PRIVATE | ACC_STATIC | ACC_SYNTHETIC, "$checkStackPointer$", "(II)V", null, new String[] {"java/lang/AssertionError"});
+                mv.visitCode();
+                mv.visitVarInsn(ILOAD, 0);
+                mv.visitVarInsn(ILOAD, 1);
+                Label equalLabel = new Label();
+                mv.visitJumpInsn(IF_ICMPEQ, equalLabel);
+                mv.visitTypeInsn(NEW, "java/lang/AssertionError");
+                mv.visitInsn(DUP);
+                mv.visitTypeInsn(NEW, "java/lang/StringBuilder");
+                mv.visitInsn(DUP);
+                mv.visitLdcInsn("Stack pointers differ: ");
+                mv.visitMethodInsn(INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "(Ljava/lang/String;)V", false);
+                mv.visitVarInsn(ILOAD, 0);
+                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
+                mv.visitLdcInsn(" != ");
+                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
+                mv.visitVarInsn(ILOAD, 1);
+                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(I)Ljava/lang/StringBuilder;", false);
+                mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
+                mv.visitMethodInsn(INVOKESPECIAL, "java/lang/AssertionError", "<init>", "(Ljava/lang/Object;)V", false);
+                mv.visitInsn(ATHROW);
+                mv.visitLabel(equalLabel);
+                mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
+                mv.visitInsn(RETURN);
+                mv.visitMaxs(5, 2);
+                mv.visitEnd();
+            }
 
             public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                 if ("Lautostack/UseCallerStack;".equals(desc)) {
@@ -177,7 +223,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
                 Integer info = stackMethods.get(name + desc);
-                if (info == null)
+                if (info == null || "<init>".equals(name) || "<clinit>".equals(name))
                     return mv;
                 boolean catches = (info.intValue() & 1) == 1;
                 if (debugTransform)
@@ -203,15 +249,22 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitInsn(opcode);
                             return;
                         }
-                        if (opcode >= IRETURN && opcode <= RETURN && newStack) {
-                            if (debugRuntime) {
+                        if (opcode >= IRETURN && opcode <= RETURN && (newStack || checkStack)) {
+                            if (debugRuntime && newStack && !checkStack) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
                                 mv.visitLdcInsn("[autostack] restore stack pointer because of return at " + className.replace('/', '.') + "." + name + ":" + lastLine);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
-                            mv.visitVarInsn(ALOAD, stackVarIndex);
-                            mv.visitVarInsn(ILOAD, stackPointerVarIndex);
-                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "setPointer", "(I)V", false);
+                            if (newStack && !checkStack) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                                mv.visitVarInsn(ILOAD, stackPointerVarIndex);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "setPointer", "(I)V", false);
+                            } else if (checkStack) {
+                                mv.visitVarInsn(ILOAD, stackPointerVarIndex);
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
+                                mv.visitMethodInsn(INVOKESTATIC, className, "$checkStackPointer$", "(II)V", false);
+                            }
                         }
                         mv.visitInsn(opcode);
                     }
@@ -284,7 +337,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     }
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-                        if (opcode != INVOKESTATIC || notransform) {
+                        if (opcode != INVOKESTATIC || notransform || checkStack) {
                             mv.visitMethodInsn(opcode, owner, name, desc, itf);
                             return;
                         }
@@ -328,9 +381,9 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitCode();
                             return;
                         }
-                        additionalLocals = newStack ? 2 : 1;
+                        additionalLocals = newStack || checkStack ? 2 : 1;
                         replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
-                        if (!newStack) {
+                        if (!newStack && !checkStack) {
                             replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
                         } else {
                             replacedLocals[replacedLocals.length - 2] = MEMORYSTACK;
@@ -372,13 +425,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         stackVarIndex = var;
                         stackPointerVarIndex = var + 1;
                         mv.visitCode();
-                        if (newStack) {
+                        if (newStack && !checkStack || checkStack) {
                             mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
                             mv.visitInsn(DUP);
                             mv.visitVarInsn(ASTORE, stackVarIndex);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
                             mv.visitVarInsn(ISTORE, stackPointerVarIndex);
-                            if (debugRuntime) {
+                            if (debugRuntime && newStack && !checkStack) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
                                 mv.visitLdcInsn("[autostack] save stack pointer [");
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
@@ -392,7 +445,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             }
                             mv.visitLabel(tryLabel);
                             mv.visitFrame(F_APPEND, 2, new Object[] {MEMORYSTACK, INTEGER}, 0, null);
-                        } else {
+                        } else if (!newStack && !checkStack) {
                             mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
                             mv.visitVarInsn(ASTORE, stackVarIndex);
                             if (debugRuntime) {
@@ -418,11 +471,11 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitMaxs(maxStack, maxLocals);
                             return;
                         }
-                        if (newStack) {
+                        if (newStack && !checkStack || checkStack) {
                             mv.visitLabel(finallyLabel);
                             mv.visitFrame(F_FULL, replacedLocals.length, replacedLocals, 1, new Object[] {"java/lang/Throwable"});
                             mv.visitTryCatchBlock(tryLabel, finallyLabel, finallyLabel, null);
-                            if (debugRuntime) {
+                            if (debugRuntime && newStack && !checkStack) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
                                 mv.visitLdcInsn("[autostack] restore stack pointer because of throw [");
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "print", "(Ljava/lang/String;)V", false);
@@ -435,9 +488,11 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 mv.visitLdcInsn("] at " + className.replace('/', '.') + "." + name + ":" + lastLine);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
-                            mv.visitVarInsn(ALOAD, stackVarIndex);
-                            mv.visitVarInsn(ILOAD, stackPointerVarIndex);
-                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "setPointer", "(I)V", false);
+                            if (newStack && !checkStack) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                                mv.visitVarInsn(ILOAD, stackPointerVarIndex);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "setPointer", "(I)V", false);
+                            }
                             mv.visitInsn(ATHROW);
                         }
                         mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + additionalLocals);

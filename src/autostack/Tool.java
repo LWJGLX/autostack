@@ -36,6 +36,8 @@ public class Tool {
 
     private static boolean DEBUG_TRANSFORM = getBooleanProperty("autostack.DEBUG_TRANSFORM", false);
     private static boolean DEBUG_RUNTIME = getBooleanProperty("autostack.DEBUG_RUNTIME", false);
+    private static boolean TRACE = getBooleanProperty("autostack.TRACE", false);
+    private static boolean CHECK_STACK = getBooleanProperty("autostack.CHECK_STACK", false);
 
     private static boolean getBooleanProperty(String prop, boolean def) {
         String value = System.getProperty(prop);
@@ -55,6 +57,8 @@ public class Tool {
         Transformer transformer = new Transformer(Collections.<String>emptyList());
         transformer.setDebugRuntime(DEBUG_RUNTIME);
         transformer.setDebugTransform(DEBUG_TRANSFORM);
+        transformer.setTrace(TRACE);
+        transformer.setCheckStack(CHECK_STACK);
 
         FileInputStream fis = new FileInputStream(inFile);
         JarInputStream jarIn = new JarInputStream(fis);
