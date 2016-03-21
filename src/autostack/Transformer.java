@@ -109,7 +109,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
-                    boolean mark, catches;
+                    boolean mark, catches, notransform;
+
+                    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+                    	if ("Lautostack/NoTransform;".equals(desc))
+                    		notransform = true;
+                    	return null;
+                    }
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         if (opcode == INVOKESTATIC && !itf && (
@@ -126,9 +132,13 @@ public class Transformer implements Opcodes, ClassFileTransformer {
 
                     public void visitEnd() {
                         if (mark) {
-                            if (debugTransform)
-                                System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);
-                            stackMethods.put(methodName + methodDesc, catches);
+                        	if (notransform && debugTransform) {
+                        		System.out.println("[autostack]   excluded method from transformation: " + className.replace('/', '.') + "." + methodName);
+                        	} else {
+	                            if (debugTransform)
+	                                System.out.println("[autostack]   will transform method: " + className.replace('/', '.') + "." + methodName);
+	                            stackMethods.put(methodName + methodDesc, catches);
+                        	}
                         }
                     }
                 };
