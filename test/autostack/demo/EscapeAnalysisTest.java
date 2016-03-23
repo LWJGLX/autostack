@@ -9,15 +9,21 @@ import autostack.UseCallerStack;
  */
 public class EscapeAnalysisTest {
 
-    public static VkClearValue callee() {
-        // callee should not create a new stack frame since
-        // stack-allocated memory escapes the method.
-        return VkClearValue.callocStack();
+    static class A {
+        float a;
+        VkClearValue b;
     }
 
-    public static void caller() {
-        // callee should use caller's stack to allocate
-        VkClearValue clearValue = callee();
+    public static A callee() {
+        VkClearValue struct = VkClearValue.callocStack();
+        A a = new A();
+        a.a = 4.0f;
+        a.b = struct;
+        return a;
+    }
+
+    public static void main(String[] args) {
+        callee();
     }
 
 }

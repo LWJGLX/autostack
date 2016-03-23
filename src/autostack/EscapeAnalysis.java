@@ -511,7 +511,6 @@ public class EscapeAnalysis implements Opcodes {
 
                     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
                         Type fieldType = Type.getType(desc);
-                        Node target = (opcode == PUTFIELD || opcode == GETFIELD) ? operandStack.pop() : null;
                         if (opcode == PUTSTATIC) {
                             // setting a static field globally escapes the node!
                             if (fieldType.getSort() == Type.OBJECT || fieldType.getSort() == Type.ARRAY) {
@@ -523,25 +522,44 @@ public class EscapeAnalysis implements Opcodes {
                                 }
                             }
                         } else if (opcode == PUTFIELD) {
-                            List<Edge> pointsToU = target.incomings;
-                            Node phantomObject = new Node(true);
-                            target.addPointsTo(phantomObject);
+                            if (fieldType.getSort() != Type.OBJECT && fieldType.getSort() != Type.ARRAY) {
+                                for (int i = 0; i < fieldType.getSize(); i++) {
+                                    operandStack.pop();
+                                }
+                                operandStack.pop();
+                                return;
+                            }
+                            Node q = operandStack.pop();
+                            // p.f = q (chapter "3 Interprocedural Analysis", page 5)
+                            Node target = (opcode == PUTFIELD || opcode == GETFIELD) ? operandStack.pop() : null;
+                            Node p = target;
+                            int numPointsTo = 0;
+                            for (Edge e : p.outgoings) {
+                                if (e.type == Edge.TYPE_POINTS_TO)
+                                    numPointsTo++;
+                            }
+                            if (numPointsTo == 0) {
+                                Node phantomObject = new Node(true);
+                                p.addPointsTo(phantomObject);
+                            }
                             List<Node> V = new ArrayList<Node>();
-                            for (Edge e : pointsToU) {
+                            for (Edge e : p.outgoings) {
                                 if (e.type == Edge.TYPE_POINTS_TO && owner.equals(e.fieldOwner) && name.equals(e.fieldName))
                                     V.add(e.to);
                             }
                             if (V.isEmpty()) {
                                 Node fieldRef = new Node(true);
                                 fieldRef.type = Node.TYPE_FIELD;
+                                Edge edge = new Edge(p, fieldRef, Edge.TYPE_POINTS_TO);
+                                edge.fieldOwner = owner;
+                                edge.fieldName = name;
+                                p.outgoings.add(edge);
+                                fieldRef.incomings.add(edge);
                                 V.add(fieldRef);
                             }
-                            Node q = operandStack.pop();
                             for (Node v : V) {
                                 v.addDeferred(q);
                             }
-                            if (fieldType.getSize() == 2)
-                                operandStack.pop();
                         } else if (opcode == GETSTATIC || opcode == GETFIELD) {
                             // TODO: Implement p = q.f on page 6
                             if (fieldType.getSort() == Type.DOUBLE || fieldType.getSort() == Type.LONG) {
@@ -658,7 +676,7 @@ public class EscapeAnalysis implements Opcodes {
                                 if (t.getSort() == Type.DOUBLE || t.getSort() == Type.LONG) {
                                     operandStack.pop();
                                 }
-                                if (t.getSort() >= 1 && t.getSort() <= 8 || argumentNode == unescapable) {
+                                if (t.getSort() >= Type.BOOLEAN && t.getSort() <= Type.DOUBLE || argumentNode == unescapable) {
                                     // Primitive types. Don't care
                                 } else if (t.getSort() == Type.OBJECT || t.getSort() == Type.ARRAY) {
                                     objArgs.add(argumentNode);
