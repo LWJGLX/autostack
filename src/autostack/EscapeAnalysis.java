@@ -1,5 +1,7 @@
 package autostack;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -78,7 +80,7 @@ public class EscapeAnalysis implements Opcodes {
         }
     }
 
-    public Set<String> stackEscapingMethods(ClassReader cr) {
+    public Set<String> stackEscapingMethods(ClassReader cr, final ClassLoader cl) {
         final Set<String> escapingMethods = new HashSet<String>();
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
@@ -683,11 +685,29 @@ public class EscapeAnalysis implements Opcodes {
                                 }
                             }
                             Node target = opcode == INVOKESTATIC ? null : operandStack.pop();
-                            if (target != null && target.type == Node.TYPE_STACK && retType.getSort() == Type.OBJECT && owner.equals(retType.getInternalName())) {
-                                // Likely a setter method on a stack. Do not escape.
-                                // But return the stack itself again
+                            boolean isStruct = false;
+                            if (target != null && target.type == Node.TYPE_STACK && retType.getSort() == Type.OBJECT) {
+                                // Check if it's a struct subclass without loading the class
+                                try {
+                                    InputStream is = cl.getResourceAsStream(owner + ".class");
+                                    ClassReader lcr = new ClassReader(is);
+                                    is.close();
+                                    String superClass = lcr.getSuperName();
+                                    isStruct = "org/lwjgl/system/Struct".equals(superClass);
+                                } catch (IOException e) {
+                                    // Class definition not found: Probably a runtime-generated class. So load it.
+                                    try {
+                                        Class<?> clazz = cl.loadClass(owner.replace('/', '.'));
+                                        Class<?> superClass = clazz.getSuperclass();
+                                        isStruct = "org.lwjgl.system.Struct".equals(superClass.getName());
+                                    } catch (ClassNotFoundException ex) {
+                                        throw new AssertionError(ex);
+                                    }
+                                }
+                            }
+                            if (isStruct) {
                                 operandStack.push(target);
-                            } else {
+                            } else if (!isStruct) {
                                 // All object arguments escape globally!
                                 for (Node arg : objArgs) {
                                     arg.escapeState = Node.ESCAPE_GLOBAL;
