@@ -425,8 +425,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (!isStatic)
                             replacedLocals[0] = className;
                         int var = isStatic ? 0 : 1;
-                        for (int t = 0; t < paramTypes.length; t++) {
-                            int i = t + (isStatic ? 0 : 1);
+                        for (int t = 0, i = var; t < paramTypes.length; t++, i++) {
                             Type type = paramTypes[t];
                             var += type.getSize();
                             switch (type.getSort()) {
