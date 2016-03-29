@@ -130,7 +130,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (opcode == INVOKESTATIC && !itf && (
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
                                 owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush") ||
-                                                              name.startsWith("stackMalloc") || name.startsWith("stackCalloc")))) {
+                                                              name.startsWith("stackMalloc") || name.startsWith("stackCalloc") ||
+                                                              name.equals("stackFloats")))) {
                             mark = true;
                         }
                     }
@@ -275,6 +276,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                     int stackPointerVarIndex;
                     int firstAdditionalLocal;
                     int additionalLocals;
+                    int moreStack;
                     Object[] replacedLocals;
 
                     public void visitInsn(int opcode) {
@@ -399,6 +401,30 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
+                        } else if (owner.equals(MEMORYSTACK) && name.equals("stackFloats")) {
+                            Type[] argTypes = Type.getArgumentTypes(desc);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            if (argTypes.length == 1 && argTypes[0].getSort() == Type.ARRAY) {
+                                mv.visitInsn(SWAP);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                            } else if (argTypes.length == 1) {
+                                mv.visitInsn(SWAP);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                            } else if (argTypes.length == 2) {
+                                mv.visitInsn(DUP_X2);
+                                mv.visitInsn(POP);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                            } else if (argTypes.length == 3) {
+                                mv.visitInsn(DUP2_X2);
+                                mv.visitInsn(POP);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                                mv.visitInsn(SWAP);
+                                mv.visitInsn(POP);
+                                moreStack = 1;
+                            } else {
+                                /* Give up. Not possible without an additional local */
+                                mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackFloats", desc, itf);
+                            }
                         } else {
                             mv.visitMethodInsn(opcode, owner, name, desc, itf);
                         }
@@ -533,7 +559,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             }
                             mv.visitInsn(ATHROW);
                         }
-                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1), maxLocals + additionalLocals);
+                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1) + moreStack, maxLocals + additionalLocals);
                     }
                 };
                 return mv;
