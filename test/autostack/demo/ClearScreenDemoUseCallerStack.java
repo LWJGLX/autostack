@@ -22,7 +22,6 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFWKeyCallback;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.system.Configuration;
-import org.lwjgl.system.MemoryUtil.BufferAllocator;
 import org.lwjgl.vulkan.VkApplicationInfo;
 import org.lwjgl.vulkan.VkAttachmentDescription;
 import org.lwjgl.vulkan.VkAttachmentReference;
@@ -78,7 +77,7 @@ public class ClearScreenDemoUseCallerStack {
     private static final boolean validation = Boolean.parseBoolean(System.getProperty("vulkan.validation", "false"));
 
     private static ByteBuffer[] layers = {
-        memEncodeASCII("VK_LAYER_LUNARG_standard_validation", BufferAllocator.MALLOC),
+        memUTF8("VK_LAYER_LUNARG_standard_validation"),
     };
 
     /**
@@ -102,8 +101,8 @@ public class ClearScreenDemoUseCallerStack {
         // Here we say what the name of our application is and which Vulkan version we are targetting (having this is optional)
         VkApplicationInfo appInfo = VkApplicationInfo.callocStack()
                 .sType(VK_STRUCTURE_TYPE_APPLICATION_INFO)
-                .pApplicationName("GLFW Vulkan Demo")
-                .pEngineName("")
+                .pApplicationName(stackUTF8("GLFW Vulkan Demo"))
+                .pEngineName(stackUTF8(""))
                 .apiVersion(VK_MAKE_VERSION(1, 0, 2));
 
         // We also need to tell Vulkan which extensions we would like to use.
@@ -111,7 +110,7 @@ public class ClearScreenDemoUseCallerStack {
         // This includes stuff like the Window System Interface extensions to actually render something on a window.
         //
         // We also add the debug extension so that validation layers and other things can send log messages to us.
-        ByteBuffer VK_EXT_DEBUG_REPORT_EXTENSION = memEncodeASCII(VK_EXT_DEBUG_REPORT_EXTENSION_NAME, BufferAllocator.STACK);
+        ByteBuffer VK_EXT_DEBUG_REPORT_EXTENSION = stackUTF8(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
         PointerBuffer ppEnabledExtensionNames = stackMallocPointer(requiredExtensions.remaining() + 1);
         ppEnabledExtensionNames.put(requiredExtensions) // <- platform-dependent required extensions
                                .put(VK_EXT_DEBUG_REPORT_EXTENSION) // <- the debug extensions
@@ -214,7 +213,7 @@ public class ClearScreenDemoUseCallerStack {
                 .pQueuePriorities(stackFloats(0.0f));
 
         PointerBuffer extensions = stackMallocPointer(1);
-        ByteBuffer VK_KHR_SWAPCHAIN_EXTENSION = memEncodeASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME, BufferAllocator.STACK);
+        ByteBuffer VK_KHR_SWAPCHAIN_EXTENSION = stackUTF8(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         extensions.put(VK_KHR_SWAPCHAIN_EXTENSION);
         extensions.flip();
         PointerBuffer ppEnabledLayerNames = stackMallocPointer(layers.length);
@@ -803,7 +802,7 @@ public class ClearScreenDemoUseCallerStack {
         final VkInstance instance = createInstance(requiredExtensions);
         final VkDebugReportCallbackEXT debugCallback = new VkDebugReportCallbackEXT() {
             public int invoke(int flags, int objectType, long object, long location, int messageCode, long pLayerPrefix, long pMessage, long pUserData) {
-                System.err.println("ERROR OCCURED: " + memDecodeASCII(pMessage));
+                System.err.println("ERROR OCCURED: " + getString(pMessage));
                 return 0;
             }
         };
