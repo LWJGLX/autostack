@@ -41,7 +41,9 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.TryCatchBlockSorter;
 import org.objectweb.asm.util.TraceClassVisitor;
 
-public class Transformer implements Opcodes, ClassFileTransformer {
+import static org.objectweb.asm.Opcodes.*;
+
+public class Transformer implements ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
 
     private List<String> packages;
