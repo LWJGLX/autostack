@@ -43,7 +43,7 @@ import org.objectweb.asm.util.TraceClassVisitor;
 
 public class Transformer implements Opcodes, ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
-    
+
     private List<String> packages;
     private boolean debugTransform;
     private boolean debugRuntime;
@@ -169,7 +169,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
         ClassWriter cw = new ClassWriter(cr, 0);
         cr.accept(new ClassVisitor(ASM5, cw) {
             boolean classDefaultNewStack = defaultNewStack;
-            
+
             @Override
             public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
                 cv.visit(version, access, name, signature, superName, interfaces);
@@ -425,7 +425,8 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                         if (!isStatic)
                             replacedLocals[0] = className;
                         int var = isStatic ? 0 : 1;
-                        for (int t = var; t < paramTypes.length; t++) {
+                        for (int t = 0; t < paramTypes.length; t++) {
+                            int i = t + (isStatic ? 0 : 1);
                             Type type = paramTypes[t];
                             var += type.getSize();
                             switch (type.getSort()) {
@@ -434,24 +435,23 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             case Type.BOOLEAN:
                             case Type.SHORT:
                             case Type.CHAR:
-                                replacedLocals[t] = INTEGER;
+                                replacedLocals[i] = INTEGER;
                                 break;
                             case Type.LONG:
-                                replacedLocals[t] = LONG;
+                                replacedLocals[i] = LONG;
                                 break;
                             case Type.FLOAT:
-                                replacedLocals[t] = FLOAT;
+                                replacedLocals[i] = FLOAT;
                                 break;
                             case Type.DOUBLE:
-                                replacedLocals[t] = DOUBLE;
+                                replacedLocals[i] = DOUBLE;
                                 break;
                             case Type.OBJECT:
                             case Type.ARRAY:
-                                replacedLocals[t] = type.getInternalName();
+                                replacedLocals[i] = type.getInternalName();
                                 break;
                             default:
-                                System.err.println("Unhandle parameter type: " + type);
-                                throw new RuntimeException("Unhandle parameter type: " + type);
+                                throw new AssertionError("Unhandled parameter type: " + type);
                             }
                         }
                         firstAdditionalLocal = var;
