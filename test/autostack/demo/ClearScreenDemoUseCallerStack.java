@@ -15,7 +15,6 @@ import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.system.MemoryStack.*;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
@@ -209,12 +208,10 @@ public class ClearScreenDemoUseCallerStack {
             if ((queueProps.get(graphicsQueueFamilyIndex).queueFlags() & VK_QUEUE_GRAPHICS_BIT) != 0)
                 break;
         }
-        FloatBuffer pQueuePriorities = stackMallocFloat(1).put(0.0f);
-        pQueuePriorities.flip();
         VkDeviceQueueCreateInfo.Buffer queueCreateInfo = VkDeviceQueueCreateInfo.callocStack(1)
                 .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
                 .queueFamilyIndex(graphicsQueueFamilyIndex)
-                .pQueuePriorities(pQueuePriorities);
+                .pQueuePriorities(stackFloats(0.0f, 1.0f, 2.0f));
 
         PointerBuffer extensions = stackMallocPointer(1);
         ByteBuffer VK_KHR_SWAPCHAIN_EXTENSION = memEncodeASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME, BufferAllocator.STACK);
@@ -785,7 +782,7 @@ public class ClearScreenDemoUseCallerStack {
 
     static {
         /* Configure LWJGL stack. */
-        Configuration.STACK_SIZE.set(3);
+        Configuration.STACK_SIZE.set(2);
     }
 
     public static void main(String[] args) {
