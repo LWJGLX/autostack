@@ -131,7 +131,7 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
                                 owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush") ||
                                                               name.startsWith("stackMalloc") || name.startsWith("stackCalloc") ||
-                                                              name.equals("stackFloats")))) {
+                                                              name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") || name.equals("stackShorts")))) {
                             mark = true;
                         }
                     }
@@ -401,29 +401,30 @@ public class Transformer implements Opcodes, ClassFileTransformer {
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
-                        } else if (owner.equals(MEMORYSTACK) && name.equals("stackFloats")) {
+                        } else if (owner.equals(MEMORYSTACK) && (name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") || name.equals("stackShorts"))) {
+                            String newName = name.substring(5, 6).toLowerCase() + name.substring(6);
                             Type[] argTypes = Type.getArgumentTypes(desc);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             if (argTypes.length == 1 && argTypes[0].getSort() == Type.ARRAY) {
                                 mv.visitInsn(SWAP);
-                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 1) {
                                 mv.visitInsn(SWAP);
-                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 2) {
                                 mv.visitInsn(DUP_X2);
                                 mv.visitInsn(POP);
-                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 3) {
                                 mv.visitInsn(DUP2_X2);
                                 mv.visitInsn(POP);
-                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "floats", desc, itf);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                                 mv.visitInsn(SWAP);
                                 mv.visitInsn(POP);
                                 moreStack = 1;
                             } else {
                                 /* Give up. Not possible without an additional local */
-                                mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackFloats", desc, itf);
+                                mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, name, desc, itf);
                             }
                         } else {
                             mv.visitMethodInsn(opcode, owner, name, desc, itf);
