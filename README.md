@@ -46,11 +46,11 @@ Build-time instrumentation
 If for you the runtime instrumentation with the Java Agent is too slow or you don't want to have to provide the JVM argument or distribute the autostack.jar file with your application, you can also transform your classes offline.
 For this, the autostack.jar is an executable jar itself, which can be used like this:
 
-  `java -jar autotools.jar input.jar output.jar`
+  `java -jar autostack.jar input.jar output.jar`
 
 In this example the input.jar is the jar file containing your uninstrumented class files (and possibly any other resources of your application). The output.jar is the jar in which all applicable transformations have been applied.
 
-Once the classes have been transformed using this offline tool, there is no dependency anymore to the autotools.jar, so it need not be inside the application's classpath at runtime.
+Once the classes have been transformed using this offline tool, there is no dependency anymore to the autostack.jar, so it need not be inside the application's classpath at runtime.
 
 I want to see what happens
 --------------------------
