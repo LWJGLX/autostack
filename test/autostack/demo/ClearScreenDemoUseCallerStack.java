@@ -211,7 +211,7 @@ public class ClearScreenDemoUseCallerStack {
         VkDeviceQueueCreateInfo.Buffer queueCreateInfo = VkDeviceQueueCreateInfo.callocStack(1)
                 .sType(VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO)
                 .queueFamilyIndex(graphicsQueueFamilyIndex)
-                .pQueuePriorities(stackFloats(0.0f, 1.0f, 2.0f));
+                .pQueuePriorities(stackFloats(0.0f));
 
         PointerBuffer extensions = stackMallocPointer(1);
         ByteBuffer VK_KHR_SWAPCHAIN_EXTENSION = memEncodeASCII(VK_KHR_SWAPCHAIN_EXTENSION_NAME, BufferAllocator.STACK);
