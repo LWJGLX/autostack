@@ -133,6 +133,7 @@ public class Transformer implements ClassFileTransformer {
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
                                 owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush") ||
                                                               name.startsWith("stackMalloc") || name.startsWith("stackCalloc") ||
+                                                              name.equals("stackUTF8") || name.equals("stackASCII") || name.equals("stackUTF16") ||
                                                               name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") ||
                                                               name.equals("stackShorts") || name.equals("stackPointers") || name.equals("stackLongs")))) {
                             mark = true;
@@ -403,6 +404,20 @@ public class Transformer implements ClassFileTransformer {
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
+                        } else if (owner.equals(MEMORYSTACK) && (name.equals("stackASCII") || name.equals("stackUTF8") || name.equals("stackUTF16"))) {
+                            String newName = name.substring(5);
+                            boolean withBoolean = desc.startsWith("(Ljava/lang/CharSequence;Z");
+                            if (debugTransform)
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            if (withBoolean) {
+                                mv.visitInsn(DUP_X2);
+                                mv.visitInsn(POP);
+                                moreStack = moreStack > 1 ? moreStack : 1;
+                            } else {
+                                mv.visitInsn(SWAP);
+                            }
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                         } else if (owner.equals(MEMORYSTACK) && (name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") || name.equals("stackShorts")
                                 || name.equals("stackPointers") && (desc.startsWith("([Lorg/lwjgl/system/Pointer;") || desc.startsWith("(Lorg/lwjgl/system/Pointer;")))) {
