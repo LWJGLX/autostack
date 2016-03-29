@@ -133,7 +133,8 @@ public class Transformer implements ClassFileTransformer {
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
                                 owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush") ||
                                                               name.startsWith("stackMalloc") || name.startsWith("stackCalloc") ||
-                                                              name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") || name.equals("stackShorts")))) {
+                                                              name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") ||
+                                                              name.equals("stackShorts") || name.equals("stackPointers") || name.equals("stackLongs")))) {
                             mark = true;
                         }
                     }
@@ -403,27 +404,49 @@ public class Transformer implements ClassFileTransformer {
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
-                        } else if (owner.equals(MEMORYSTACK) && (name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") || name.equals("stackShorts"))) {
+                        } else if (owner.equals(MEMORYSTACK) && (name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") || name.equals("stackShorts")
+                                || name.equals("stackPointers") && (desc.startsWith("([Lorg/lwjgl/system/Pointer;") || desc.startsWith("(Lorg/lwjgl/system/Pointer;")))) {
                             String newName = name.substring(5, 6).toLowerCase() + name.substring(6);
                             Type[] argTypes = Type.getArgumentTypes(desc);
-                            mv.visitVarInsn(ALOAD, stackVarIndex);
                             if (argTypes.length == 1 && argTypes[0].getSort() == Type.ARRAY) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(SWAP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 1) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(SWAP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 2) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(DUP_X2);
                                 mv.visitInsn(POP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
+                                moreStack = moreStack > 1 ? moreStack : 1;
                             } else if (argTypes.length == 3) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(DUP2_X2);
                                 mv.visitInsn(POP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                                 mv.visitInsn(SWAP);
                                 mv.visitInsn(POP);
-                                moreStack = 1;
+                                moreStack = moreStack > 2 ? moreStack : 2;
+                            } else {
+                                /* Give up. Not possible without an additional local */
+                                mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, name, desc, itf);
+                            }
+                        } else if (owner.equals(MEMORYSTACK) && name.equals("stackLongs")) {
+                            String newName = name.substring(5, 6).toLowerCase() + name.substring(6);
+                            Type[] argTypes = Type.getArgumentTypes(desc);
+                            if (argTypes.length == 1 && argTypes[0].getSort() == Type.ARRAY) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                                mv.visitInsn(SWAP);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
+                            } else if (argTypes.length == 1) {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                                mv.visitInsn(DUP_X2);
+                                mv.visitInsn(POP);
+                                mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
+                                moreStack = moreStack > 1 ? moreStack : 1;
                             } else {
                                 /* Give up. Not possible without an additional local */
                                 mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, name, desc, itf);
