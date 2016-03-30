@@ -325,7 +325,6 @@ public class Transformer implements ClassFileTransformer {
                     int stackPointerVarIndex;
                     int firstAdditionalLocal;
                     int additionalLocals;
-                    int additionalLocalsNoParam;
                     Object[] replacedLocals;
 
                     public void visitInsn(int opcode) {
@@ -551,17 +550,11 @@ public class Transformer implements ClassFileTransformer {
                             return;
                         }
                         additionalLocals = newStack || checkStack ? 2 : 1;
-                        additionalLocalsNoParam = additionalLocals;
-                        if (memoryStackParam)
-                            additionalLocalsNoParam--;
-                        replacedLocals = new Object[paramTypes.length + additionalLocalsNoParam + (isStatic ? 0 : 1)];
+                        replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
                         if (!newStack && !checkStack) {
-                            if (!memoryStackParam)
-                                replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
+                            replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
                         } else {
-                            if (!memoryStackParam) {
-                                replacedLocals[replacedLocals.length - 2] = MEMORYSTACK;
-                            }
+                            replacedLocals[replacedLocals.length - 2] = MEMORYSTACK;
                             replacedLocals[replacedLocals.length - 1] = INTEGER;
                         }
                         if (!isStatic)
