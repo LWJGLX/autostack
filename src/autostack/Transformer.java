@@ -52,9 +52,18 @@ public class Transformer implements ClassFileTransformer {
     private boolean trace;
     private boolean defaultNewStack = true;
     private boolean checkStack;
+    private boolean stackAsParameter;
 
     public Transformer(List<String> packages) {
         this.packages = packages != null ? packages : Collections.<String>emptyList();
+    }
+
+    public boolean isStackAsParameter() {
+        return stackAsParameter;
+    }
+
+    public void setStackAsParameter(boolean stackAsParameter) {
+        this.stackAsParameter = stackAsParameter;
     }
 
     public boolean isCheckStack() {
@@ -145,7 +154,7 @@ public class Transformer implements ClassFileTransformer {
                     }
 
                     public void visitEnd() {
-                        int flag = 0;
+                        int flag = (access & ACC_PRIVATE) != 0 ? 8 : 0;
                         if (mark || notransform) {
                             if (notransform) {
                                 flag |= 2;
@@ -259,17 +268,53 @@ public class Transformer implements ClassFileTransformer {
             }
 
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
-                MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
                 Integer info = stackMethods.get(name + desc);
                 if (info == null || "<init>".equals(name) || "<clinit>".equals(name))
-                    return mv;
+                    return super.visitMethod(access, name, desc, signature, exceptions);
                 boolean catches = (info.intValue() & 1) == 1;
                 if (debugTransform)
                     System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
-                if (catches)
-                    mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
+                final boolean memoryStackParam = (access & ACC_PRIVATE) != 0;
+                MethodVisitor mv;
                 final Type[] paramTypes = Type.getArgumentTypes(desc);
                 final boolean isStatic = (access & ACC_STATIC) != 0;
+                if (memoryStackParam && stackAsParameter) {
+                    if (debugTransform)
+                        System.out.println("[autostack]     changing signature of method to add additional MemoryStack parameter");
+
+                    // Add additional MemoryStack parameter to the method signature index of the local stays the same
+                    int paramEndIndex = desc.indexOf(')');
+                    String beforeDesc = desc.substring(0, paramEndIndex);
+                    String afterDesc = desc.substring(paramEndIndex);
+                    mv = super.visitMethod(access | ACC_SYNTHETIC, name, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, signature, exceptions);
+
+                    // Re-introduce the original method which just delegates
+                    if (debugTransform)
+                        System.out.println("[autostack]     adding delegate method with original signature");
+                    MethodVisitor omv = super.visitMethod(access, name, desc, signature, exceptions);
+                    omv.visitCode();
+                    int param = 0;
+                    if (!isStatic) {
+                        omv.visitVarInsn(ALOAD, 0);
+                        param++;
+                    }
+                    for (int i = 0; i < paramTypes.length; i++) {
+                        omv.visitVarInsn(paramTypes[i].getOpcode(ILOAD), param);
+                        param += paramTypes[i].getSize();
+                    }
+                    omv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
+                    boolean isPrivate = (access & ACC_PRIVATE) != 0;
+                    int opcode = isStatic ? INVOKESTATIC : isPrivate ? INVOKESPECIAL : INVOKEVIRTUAL;
+                    omv.visitMethodInsn(opcode, className, name, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, false);
+                    Type retType = Type.getReturnType(desc);
+                    omv.visitInsn(retType.getOpcode(IRETURN));
+                    omv.visitMaxs(-1, -1);
+                    omv.visitEnd();
+                } else {
+                    mv = super.visitMethod(access, name, desc, signature, exceptions);    
+                }
+                if (catches)
+                    mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
                 final boolean notransform = (info.intValue() & 2) == 2;
                 mv = new MethodVisitor(ASM5, mv) {
                     Label tryLabel = new Label();
@@ -375,6 +420,18 @@ public class Transformer implements ClassFileTransformer {
                     }
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+                        String completeName = name + desc;
+                        if (stackAsParameter && stackMethods.containsKey(completeName) && (stackMethods.get(completeName).intValue() & 8) != 0) {
+                            /* Rewrite invocation to have additional MemoryStack parameter */
+                            if (debugTransform)
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> " + owner.replace('/', '.') + "." + name + "(..., MemoryStack)");
+                            int paramEndIndex = desc.indexOf(')');
+                            String beforeDesc = desc.substring(0, paramEndIndex);
+                            String afterDesc = desc.substring(paramEndIndex);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            mv.visitMethodInsn(opcode, owner, name, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, itf);
+                            return;
+                        }
                         if (opcode != INVOKESTATIC || notransform || checkStack) {
                             mv.visitMethodInsn(opcode, owner, name, desc, itf);
                             return;

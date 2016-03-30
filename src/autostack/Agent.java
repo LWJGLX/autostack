@@ -32,6 +32,7 @@ public class Agent {
     private static boolean DEBUG_RUNTIME = getBooleanProperty("autostack.DEBUG_RUNTIME", false);
     private static boolean TRACE = getBooleanProperty("autostack.TRACE", false);
     private static boolean CHECK_STACK = getBooleanProperty("autostack.CHECK_STACK", false);
+    private static boolean STACK_PARAM = getBooleanProperty("autostack.STACK_PARAM", false);
 
     private static boolean getBooleanProperty(String prop, boolean def) {
         String value = System.getProperty(prop);
@@ -62,6 +63,7 @@ public class Agent {
         transformer.setTrace(TRACE);
         transformer.setDefaultNewStack(defaultNewStack);
         transformer.setCheckStack(CHECK_STACK);
+        transformer.setStackAsParameter(STACK_PARAM);
         instrumentation.addTransformer(transformer);
     }
 
