@@ -171,7 +171,7 @@ public class Transformer implements ClassFileTransformer {
         // Now, transform all such methods
         if (debugTransform)
             System.out.println("[autostack] transforming methods in class: " + className.replace('/', '.'));
-        ClassWriter cw = new ClassWriter(cr, 0);
+        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
         cr.accept(new ClassVisitor(ASM5, cw) {
             boolean classDefaultNewStack = defaultNewStack;
 
@@ -280,7 +280,6 @@ public class Transformer implements ClassFileTransformer {
                     int stackPointerVarIndex;
                     int firstAdditionalLocal;
                     int additionalLocals;
-                    int moreStack;
                     Object[] replacedLocals;
 
                     public void visitInsn(int opcode) {
@@ -414,7 +413,6 @@ public class Transformer implements ClassFileTransformer {
                             if (withBoolean) {
                                 mv.visitInsn(DUP_X2);
                                 mv.visitInsn(POP);
-                                moreStack = moreStack > 1 ? moreStack : 1;
                             } else {
                                 mv.visitInsn(SWAP);
                             }
@@ -424,28 +422,36 @@ public class Transformer implements ClassFileTransformer {
                             String newName = name.substring(5, 6).toLowerCase() + name.substring(6);
                             Type[] argTypes = Type.getArgumentTypes(desc);
                             if (argTypes.length == 1 && argTypes[0].getSort() == Type.ARRAY) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(SWAP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 1) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(SWAP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 2) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(DUP_X2);
                                 mv.visitInsn(POP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
-                                moreStack = moreStack > 1 ? moreStack : 1;
                             } else if (argTypes.length == 3) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(DUP2_X2);
                                 mv.visitInsn(POP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                                 mv.visitInsn(SWAP);
                                 mv.visitInsn(POP);
-                                moreStack = moreStack > 2 ? moreStack : 2;
                             } else {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     failed to rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + ". Not yet implemented.");
                                 /* Give up. Not possible without an additional local */
                                 mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, name, desc, itf);
                             }
@@ -453,16 +459,21 @@ public class Transformer implements ClassFileTransformer {
                             String newName = name.substring(5, 6).toLowerCase() + name.substring(6);
                             Type[] argTypes = Type.getArgumentTypes(desc);
                             if (argTypes.length == 1 && argTypes[0].getSort() == Type.ARRAY) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(SWAP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                             } else if (argTypes.length == 1) {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                                 mv.visitVarInsn(ALOAD, stackVarIndex);
                                 mv.visitInsn(DUP_X2);
                                 mv.visitInsn(POP);
                                 mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
-                                moreStack = moreStack > 1 ? moreStack : 1;
                             } else {
+                                if (debugTransform)
+                                    System.out.println("[autostack]     failed to rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + ". Not yet implemented.");
                                 /* Give up. Not possible without an additional local */
                                 mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, name, desc, itf);
                             }
@@ -600,7 +611,7 @@ public class Transformer implements ClassFileTransformer {
                             }
                             mv.visitInsn(ATHROW);
                         }
-                        mv.visitMaxs(maxStack + (debugRuntime ? 2 : 1) + moreStack, maxLocals + additionalLocals);
+                        mv.visitMaxs(-1, maxLocals + additionalLocals);
                     }
                 };
                 return mv;
