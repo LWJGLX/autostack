@@ -274,11 +274,11 @@ public class Transformer implements ClassFileTransformer {
                 boolean catches = (info.intValue() & 1) == 1;
                 if (debugTransform)
                     System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
-                final boolean memoryStackParam = (access & ACC_PRIVATE) != 0;
+                final boolean memoryStackParam = stackAsParameter && (access & ACC_PRIVATE) != 0;
                 MethodVisitor mv;
                 final Type[] paramTypes = Type.getArgumentTypes(desc);
                 final boolean isStatic = (access & ACC_STATIC) != 0;
-                if (memoryStackParam && stackAsParameter) {
+                if (memoryStackParam) {
                     if (debugTransform)
                         System.out.println("[autostack]     changing signature of method to add additional MemoryStack parameter");
 
@@ -325,6 +325,7 @@ public class Transformer implements ClassFileTransformer {
                     int stackPointerVarIndex;
                     int firstAdditionalLocal;
                     int additionalLocals;
+                    int additionalLocalsNoParam;
                     Object[] replacedLocals;
 
                     public void visitInsn(int opcode) {
@@ -550,11 +551,17 @@ public class Transformer implements ClassFileTransformer {
                             return;
                         }
                         additionalLocals = newStack || checkStack ? 2 : 1;
-                        replacedLocals = new Object[paramTypes.length + additionalLocals + (isStatic ? 0 : 1)];
+                        additionalLocalsNoParam = additionalLocals;
+                        if (memoryStackParam)
+                            additionalLocalsNoParam--;
+                        replacedLocals = new Object[paramTypes.length + additionalLocalsNoParam + (isStatic ? 0 : 1)];
                         if (!newStack && !checkStack) {
-                            replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
+                            if (!memoryStackParam)
+                                replacedLocals[replacedLocals.length - 1] = MEMORYSTACK;
                         } else {
-                            replacedLocals[replacedLocals.length - 2] = MEMORYSTACK;
+                            if (!memoryStackParam) {
+                                replacedLocals[replacedLocals.length - 2] = MEMORYSTACK;
+                            }
                             replacedLocals[replacedLocals.length - 1] = INTEGER;
                         }
                         if (!isStatic)
@@ -593,9 +600,13 @@ public class Transformer implements ClassFileTransformer {
                         stackPointerVarIndex = var + 1;
                         mv.visitCode();
                         if (newStack && !checkStack || checkStack) {
-                            mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
-                            mv.visitInsn(DUP);
-                            mv.visitVarInsn(ASTORE, stackVarIndex);
+                            if (!memoryStackParam) {
+                                mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
+                                mv.visitInsn(DUP);
+                                mv.visitVarInsn(ASTORE, stackVarIndex);
+                            } else {
+                                mv.visitVarInsn(ALOAD, stackVarIndex);
+                            }
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, "getPointer", "()I", false);
                             mv.visitVarInsn(ISTORE, stackPointerVarIndex);
                             if (debugRuntime && newStack && !checkStack) {
@@ -611,7 +622,10 @@ public class Transformer implements ClassFileTransformer {
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
                             mv.visitLabel(tryLabel);
-                            mv.visitFrame(F_APPEND, 2, new Object[] {MEMORYSTACK, INTEGER}, 0, null);
+                            if (!memoryStackParam)
+                                mv.visitFrame(F_APPEND, 2, new Object[] {MEMORYSTACK, INTEGER}, 0, null);
+                            else
+                                mv.visitFrame(F_APPEND, 1, new Object[] {INTEGER}, 0, null);
                         } else if (!newStack && !checkStack) {
                             mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
                             mv.visitVarInsn(ASTORE, stackVarIndex);
@@ -629,7 +643,8 @@ public class Transformer implements ClassFileTransformer {
                                 mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V", false);
                             }
                             mv.visitLabel(tryLabel);
-                            mv.visitFrame(F_APPEND, 1, new Object[] {MEMORYSTACK}, 0, null);
+                            if (!memoryStackParam)
+                                mv.visitFrame(F_APPEND, 1, new Object[] {MEMORYSTACK}, 0, null);
                         }
                     }
 
