@@ -88,7 +88,7 @@ public class Tool {
                         baos.write(arr, 0, read);
                     }
                     byte[] classfileBytes = baos.toByteArray();
-                    byte[] transformed = transformer.transform(null, entry.getName().substring(0, entry.getName().length() - 6), null, null, classfileBytes);
+                    byte[] transformed = transformer.transform((ClassLoader) null, entry.getName().substring(0, entry.getName().length() - 6), null, null, classfileBytes);
                     if (transformed != null) {
                         jarOut.write(transformed, 0, transformed.length);
                     } else {
