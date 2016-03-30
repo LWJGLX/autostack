@@ -620,8 +620,10 @@ public class Transformer implements ClassFileTransformer {
                             else
                                 mv.visitFrame(F_APPEND, 1, new Object[] {INTEGER}, 0, null);
                         } else if (!newStack && !checkStack) {
-                            mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
-                            mv.visitVarInsn(ASTORE, stackVarIndex);
+                            if (!memoryStackParam) {
+                                mv.visitMethodInsn(INVOKESTATIC, MEMORYSTACK, "stackGet", "()L"+ MEMORYSTACK + ";", false);
+                                mv.visitVarInsn(ASTORE, stackVarIndex);
+                            }
                             if (debugRuntime) {
                                 mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
                                 mv.visitLdcInsn("[autostack] current stack pointer is [");
