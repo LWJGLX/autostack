@@ -438,7 +438,7 @@ public class Transformer implements ClassFileTransformer {
                             mv.visitMethodInsn(opcode, owner, name, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, itf);
                             return;
                         }
-                        if (opcode != INVOKESTATIC || notransform || checkStack) {
+                        if (opcode != INVOKESTATIC || notransform) {
                             mv.visitMethodInsn(opcode, owner, name, desc, itf);
                             return;
                         }
