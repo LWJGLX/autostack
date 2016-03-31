@@ -275,7 +275,8 @@ public class Transformer implements ClassFileTransformer {
                 if (info == null || "<init>".equals(name) || "<clinit>".equals(name))
                     return super.visitMethod(access, name, desc, signature, exceptions);
                 boolean catches = (info.intValue() & 1) == 1;
-                if (debugTransform)
+                final boolean notransform = (info.intValue() & 2) == 2;
+                if (debugTransform && !notransform)
                     System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
                 final boolean memoryStackParam = stackAsParameter && (access & ACC_PRIVATE) != 0 && (info.intValue() & 16) == 0;
                 MethodVisitor mv;
@@ -318,7 +319,6 @@ public class Transformer implements ClassFileTransformer {
                 }
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
-                final boolean notransform = (info.intValue() & 2) == 2;
                 mv = new MethodVisitor(ASM5, mv) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
