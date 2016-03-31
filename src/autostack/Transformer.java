@@ -424,6 +424,10 @@ public class Transformer implements ClassFileTransformer {
                         mv.visitLocalVariable(name, desc, signature, start, end, index);
                     }
 
+                    private boolean doesNotTakeStackItself(String desc) {
+                        return desc.lastIndexOf("L" + MEMORYSTACK + ";)") == -1;
+                    }
+
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         String completeName = name + desc;
                         Integer info = stackMethods.get(completeName);
@@ -442,7 +446,7 @@ public class Transformer implements ClassFileTransformer {
                             mv.visitMethodInsn(opcode, owner, name, desc, itf);
                             return;
                         }
-                        if (owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack"))) {
+                        if (owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack")) && doesNotTakeStackItself(desc)) {
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokestatic " + owner.replace('/', '.') + "." + name);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
