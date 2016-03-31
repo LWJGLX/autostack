@@ -129,11 +129,13 @@ public class Transformer implements ClassFileTransformer {
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 MethodVisitor mv = new MethodVisitor(ASM5) {
-                    boolean mark, catches, notransform;
+                    boolean mark, catches, notransform, nostackparam;
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                         if ("Lautostack/NoTransform;".equals(desc))
                             notransform = true;
+                        else if ("Lautostack/NoStackParam;".equals(desc))
+                            nostackparam = true;
                         return null;
                     }
 
@@ -155,6 +157,7 @@ public class Transformer implements ClassFileTransformer {
 
                     public void visitEnd() {
                         int flag = (access & ACC_PRIVATE) != 0 ? 8 : 0;
+                        flag |= nostackparam ? 16 : 0;
                         if (mark || notransform) {
                             if (notransform) {
                                 flag |= 2;
@@ -274,7 +277,7 @@ public class Transformer implements ClassFileTransformer {
                 boolean catches = (info.intValue() & 1) == 1;
                 if (debugTransform)
                     System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
-                final boolean memoryStackParam = stackAsParameter && (access & ACC_PRIVATE) != 0;
+                final boolean memoryStackParam = stackAsParameter && (access & ACC_PRIVATE) != 0 && (info.intValue() & 16) == 0;
                 MethodVisitor mv;
                 final Type[] paramTypes = Type.getArgumentTypes(desc);
                 final boolean isStatic = (access & ACC_STATIC) != 0;
@@ -369,6 +372,8 @@ public class Transformer implements ClassFileTransformer {
                             return null;
                         } else if ("Lautostack/NoTransform;".equals(desc)) {
                             return null;
+                        } else if ("Lautostack/NoStackParam;".equals(desc)) {
+                            return null;
                         }
                         return mv.visitAnnotation(desc, visible);
                     }
@@ -421,7 +426,8 @@ public class Transformer implements ClassFileTransformer {
 
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         String completeName = name + desc;
-                        if (stackAsParameter && stackMethods.containsKey(completeName) && (stackMethods.get(completeName).intValue() & 8) != 0) {
+                        Integer info = stackMethods.get(completeName);
+                        if (stackAsParameter && info != null && (info.intValue() & 8) != 0 && (info.intValue() & 16) == 0) {
                             /* Rewrite invocation to have additional MemoryStack parameter */
                             if (debugTransform)
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> " + owner.replace('/', '.') + "." + name + "(..., MemoryStack)");
