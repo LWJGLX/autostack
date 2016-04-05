@@ -279,6 +279,7 @@ public class Transformer implements ClassFileTransformer {
                 if (info == null)
                     return super.visitMethod(access, name, desc, signature, exceptions);
                 boolean catches = (info.intValue() & 1) == 1;
+                final boolean isConstructor = "<init>".equals(name);
                 final boolean notransform = (info.intValue() & 2) == 2;
                 if (debugTransform && !notransform)
                     System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
@@ -572,7 +573,7 @@ public class Transformer implements ClassFileTransformer {
                             replacedLocals[replacedLocals.length - 1] = INTEGER;
                         }
                         if (!isStatic)
-                            replacedLocals[0] = className;
+                            replacedLocals[0] = isConstructor ? UNINITIALIZED_THIS : className;
                         int var = isStatic ? 0 : 1;
                         for (int t = 0, i = var; t < paramTypes.length; t++, i++) {
                             Type type = paramTypes[t];
