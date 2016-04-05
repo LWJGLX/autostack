@@ -128,8 +128,8 @@ public class Transformer implements ClassFileTransformer {
             System.out.println("[autostack] scanning methods in class: " + className.replace('/', '.'));
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
-                if ("<init>".equals(methodName) || (access & (ACC_NATIVE | ACC_ABSTRACT)) != 0) {
-                    // Don't try to analyze constructors or native or abstract methods.
+                if ((access & (ACC_NATIVE | ACC_ABSTRACT)) != 0) {
+                    // Don't try to analyze native or abstract methods.
                     return null;
                 }
                 MethodVisitor mv = new MethodVisitor(ASM5) {
@@ -286,6 +286,7 @@ public class Transformer implements ClassFileTransformer {
                 MethodVisitor mv;
                 final Type[] paramTypes = Type.getArgumentTypes(desc);
                 final boolean isStatic = (access & ACC_STATIC) != 0;
+                final boolean isConstructor = "<init>".equals(name);
                 if (memoryStackParam) {
                     if (debugTransform)
                         System.out.println("[autostack]     changing signature of method to add additional MemoryStack parameter");
@@ -408,9 +409,12 @@ public class Transformer implements ClassFileTransformer {
                             return;
                         }
                         if (type == F_FULL) {
+                            int noThis = isStatic ? 0 : 1;
                             Object[] locals = new Object[local.length + additionalLocals];
+                            if (!isStatic)
+                                locals[0] = local[0];
                             int replacementLength = replacedLocals.length;
-                            System.arraycopy(replacedLocals, 0, locals, 0, replacementLength);
+                            System.arraycopy(replacedLocals, noThis, locals, noThis, replacementLength - noThis);
                             int len = locals.length - replacementLength;
                             System.arraycopy(local, replacementLength - additionalLocals, locals, replacementLength, len);
                             mv.visitFrame(type, nLocal + additionalLocals, locals, nStack, stack);
@@ -572,7 +576,7 @@ public class Transformer implements ClassFileTransformer {
                             replacedLocals[replacedLocals.length - 1] = INTEGER;
                         }
                         if (!isStatic)
-                            replacedLocals[0] = className;
+                            replacedLocals[0] = isConstructor ? TOP : className;
                         int var = isStatic ? 0 : 1;
                         for (int t = 0, i = var; t < paramTypes.length; t++, i++) {
                             Type type = paramTypes[t];
