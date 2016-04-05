@@ -128,6 +128,10 @@ public class Transformer implements ClassFileTransformer {
             System.out.println("[autostack] scanning methods in class: " + className.replace('/', '.'));
         cr.accept(new ClassVisitor(ASM5) {
             public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
+                if ((access & (ACC_NATIVE | ACC_ABSTRACT)) != 0) {
+                    // Don't try to analyze native or abstract methods.
+                    return null;
+                }
                 MethodVisitor mv = new MethodVisitor(ASM5) {
                     boolean mark, catches, notransform, nostackparam;
 
@@ -272,7 +276,7 @@ public class Transformer implements ClassFileTransformer {
 
             public MethodVisitor visitMethod(final int access, final String name, final String desc, String signature, String[] exceptions) {
                 Integer info = stackMethods.get(name + desc);
-                if (info == null || "<init>".equals(name) || "<clinit>".equals(name))
+                if (info == null)
                     return super.visitMethod(access, name, desc, signature, exceptions);
                 boolean catches = (info.intValue() & 1) == 1;
                 final boolean notransform = (info.intValue() & 2) == 2;
