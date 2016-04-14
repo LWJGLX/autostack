@@ -34,5 +34,5 @@ import java.lang.annotation.Target;
  * @author Kai Burjack
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.METHOD})
+@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
 public @interface NoStackParam {}

@@ -40,5 +40,5 @@ import java.lang.annotation.Target;
  * @author Kai Burjack
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.METHOD, ElementType.TYPE})
+@Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.TYPE})
 public @interface UseCallerStack {}
