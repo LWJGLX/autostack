@@ -133,13 +133,15 @@ public class Transformer implements ClassFileTransformer {
                     return null;
                 }
                 MethodVisitor mv = new MethodVisitor(ASM5) {
-                    boolean mark, catches, notransform, nostackparam;
+                    boolean mark, catches, notransform, nostackparam, forcestack;
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                         if ("Lautostack/NoTransform;".equals(desc))
                             notransform = true;
                         else if ("Lautostack/NoStackParam;".equals(desc))
                             nostackparam = true;
+                        else if ("Lautostack/UseNewStack;".equals(desc))
+                        	forcestack = true;
                         return null;
                     }
 
@@ -162,7 +164,7 @@ public class Transformer implements ClassFileTransformer {
                     public void visitEnd() {
                         int flag = (access & ACC_PRIVATE) != 0 ? 8 : 0;
                         flag |= nostackparam ? 16 : 0;
-                        if (mark || notransform) {
+                        if (mark || notransform || forcestack || nostackparam) {
                             if (notransform) {
                                 flag |= 2;
                                 if (debugTransform)
@@ -190,6 +192,7 @@ public class Transformer implements ClassFileTransformer {
         ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
         cr.accept(new ClassVisitor(ASM5, cw) {
             boolean classDefaultNewStack = defaultNewStack;
+            boolean classNoTransform;
 
             @Override
             public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
@@ -270,6 +273,11 @@ public class Transformer implements ClassFileTransformer {
                         System.out.println("[autostack]   class declares to use new stack for all methods, unless overridden by method");
                     classDefaultNewStack = true;
                     return null;
+                } else if ("Lautostack/NoTransform;".equals(desc)) {
+                	if (debugTransform)
+                        System.out.println("[autostack]   class declares to not transform any methods");
+                	classNoTransform = true;
+                	return null;
                 }
                 return cv.visitAnnotation(desc, visible);
             }
@@ -279,7 +287,7 @@ public class Transformer implements ClassFileTransformer {
                 if (info == null)
                     return super.visitMethod(access, name, desc, signature, exceptions);
                 boolean catches = (info.intValue() & 1) == 1;
-                final boolean notransform = (info.intValue() & 2) == 2;
+                final boolean notransform = classNoTransform || (info.intValue() & 2) == 2;
                 if (debugTransform && !notransform)
                     System.out.println("[autostack]   transform method: " + className.replace('/', '.') + "." + name);
                 final boolean memoryStackParam = stackAsParameter && (access & ACC_PRIVATE) != 0 && (info.intValue() & 16) == 0;
