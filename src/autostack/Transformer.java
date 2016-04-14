@@ -439,6 +439,10 @@ public class Transformer implements ClassFileTransformer {
                     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
                         String completeName = name + desc;
                         Integer info = stackMethods.get(completeName);
+                        if (opcode != INVOKESTATIC || notransform) {
+                            mv.visitMethodInsn(opcode, owner, name, desc, itf);
+                            return;
+                        }
                         if (stackAsParameter && info != null && (info.intValue() & 8) != 0 && (info.intValue() & 16) == 0) {
                             /* Rewrite invocation to have additional MemoryStack parameter */
                             if (debugTransform)
@@ -448,10 +452,6 @@ public class Transformer implements ClassFileTransformer {
                             String afterDesc = desc.substring(paramEndIndex);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitMethodInsn(opcode, owner, name, beforeDesc + "L" + MEMORYSTACK + ";" + afterDesc, itf);
-                            return;
-                        }
-                        if (opcode != INVOKESTATIC || notransform) {
-                            mv.visitMethodInsn(opcode, owner, name, desc, itf);
                             return;
                         }
                         if (owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") || name.equals("callocStack")) && doesNotTakeStackItself(desc)) {
