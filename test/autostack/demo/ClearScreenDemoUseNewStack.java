@@ -784,10 +784,10 @@ public class ClearScreenDemoUseNewStack {
     }
 
     public static void main(String[] args) {
-        if (glfwInit() != GLFW_TRUE) {
+        if (!glfwInit()) {
             throw new RuntimeException("Failed to initialize GLFW");
         }
-        if (glfwVulkanSupported() == GLFW_FALSE) {
+        if (!glfwVulkanSupported()) {
             throw new AssertionError("GLFW failed to find the Vulkan loader");
         }
 
@@ -801,7 +801,7 @@ public class ClearScreenDemoUseNewStack {
         final VkInstance instance = createInstance(requiredExtensions);
         final VkDebugReportCallbackEXT debugCallback = new VkDebugReportCallbackEXT() {
             public int invoke(int flags, int objectType, long object, long location, int messageCode, long pLayerPrefix, long pMessage, long pUserData) {
-                System.err.println("ERROR OCCURED: " + getString(pMessage));
+                System.err.println("ERROR OCCURED: " + VkDebugReportCallbackEXT.getString(pMessage));
                 return 0;
             }
         };
@@ -822,7 +822,7 @@ public class ClearScreenDemoUseNewStack {
                 if (action != GLFW_RELEASE)
                     return;
                 if (key == GLFW_KEY_ESCAPE)
-                    glfwSetWindowShouldClose(window, GLFW_TRUE);
+                    glfwSetWindowShouldClose(window, true);
             }
         });
         LongBuffer pSurface = memAllocLong(1);
@@ -933,7 +933,7 @@ public class ClearScreenDemoUseNewStack {
                 .pResults(null);
 
         // The render loop
-        while (glfwWindowShouldClose(window) == GLFW_FALSE) {
+        while (!glfwWindowShouldClose(window)) {
             // Handle window messages. Resize events happen exactly here.
             // So it is safe to use the new swapchain images and framebuffers afterwards.
             glfwPollEvents();
