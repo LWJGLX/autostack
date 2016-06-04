@@ -8,7 +8,7 @@ This means, with Autostack you:
 - do not need to care about the optimal uses of MemoryStack.push() and MemoryStack.pop()
 - do not need to care about performance issues when performing repeated thread-local lookups on the MemoryStack.stackGet()
 
-For an example see the Vulkan [ClearScreenDemo](https://github.com/httpdigest/lwjgl3-autostack/blob/master/test/autostack/demo/ClearScreenDemo.java).
+For an example see the Vulkan [ClearScreenDemo](https://github.com/httpdigest/lwjgl3-autostack/blob/master/test/autostack/demo/ClearScreenDemoUseNewStack.java).
 
 How to use it?
 --------------
@@ -59,4 +59,4 @@ If you want to see which methods will be transformed by the agent and what happe
 - `-Dautostack.DEBUG_RUNTIME`: Logs whenever an automatic stack push/pop happens at runtime. This potentially results in a lot of logging at runtime!
 - `-Dautostack.TRACE`: Logs the bytecode of each transformed class and method.
 
-Both properties apply to both the runtime agent and the build-time instrumentation tool. When used as JVM arguments to the offline jar transformation, both properties control the logging of the transformation as well as the code transformation to log during runtime of the application. So, with build-time instrumentation changing any of these properties at runtime of the application is not possible anymore. This is only possible with the runtime transformation agent.
+All properties apply to both the runtime agent and the build-time instrumentation tool. When used as JVM arguments to the offline jar transformation, both properties control the logging of the transformation as well as the code transformation to log during runtime of the application. So, with build-time instrumentation changing any of these properties at runtime of the application is not possible anymore. This is only possible with the runtime transformation agent.
