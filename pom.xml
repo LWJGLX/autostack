@@ -29,7 +29,14 @@
 			<dependencies>
 				<dependency>
 					<groupId>org.lwjgl</groupId>
-					<artifactId>lwjgl-platform</artifactId>
+					<artifactId>lwjgl</artifactId>
+					<version>${lwjgl.version}</version>
+					<classifier>natives-windows</classifier>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.lwjgl</groupId>
+					<artifactId>lwjgl-glfw</artifactId>
 					<version>${lwjgl.version}</version>
 					<classifier>natives-windows</classifier>
 					<scope>provided</scope>
@@ -46,7 +53,14 @@
 			<dependencies>
 				<dependency>
 					<groupId>org.lwjgl</groupId>
-					<artifactId>lwjgl-platform</artifactId>
+					<artifactId>lwjgl</artifactId>
+					<version>${lwjgl.version}</version>
+					<classifier>natives-linux</classifier>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.lwjgl</groupId>
+					<artifactId>lwjgl-glfw</artifactId>
 					<version>${lwjgl.version}</version>
 					<classifier>natives-linux</classifier>
 					<scope>provided</scope>
@@ -64,6 +78,13 @@
 				<dependency>
 					<groupId>org.lwjgl</groupId>
 					<artifactId>lwjgl-platform</artifactId>
+					<version>${lwjgl.version}</version>
+					<classifier>natives-osx</classifier>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
+					<groupId>org.lwjgl</groupId>
+					<artifactId>lwjgl-glfw</artifactId>
 					<version>${lwjgl.version}</version>
 					<classifier>natives-osx</classifier>
 					<scope>provided</scope>
@@ -145,6 +166,18 @@
 		<dependency>
 			<groupId>org.lwjgl</groupId>
 			<artifactId>lwjgl</artifactId>
+			<version>${lwjgl.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.lwjgl</groupId>
+			<artifactId>lwjgl-glfw</artifactId>
+			<version>${lwjgl.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.lwjgl</groupId>
+			<artifactId>lwjgl-vulkan</artifactId>
 			<version>${lwjgl.version}</version>
 			<scope>provided</scope>
 		</dependency>

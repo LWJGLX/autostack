@@ -465,7 +465,7 @@ public class ClearScreenDemoUseCallerStack {
                 .pQueueFamilyIndices(null)
                 .presentMode(swapchainPresentMode)
                 .oldSwapchain(oldSwapChain)
-                .clipped(VK_TRUE)
+                .clipped(true)
                 .compositeAlpha(VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
         swapchainCI.imageExtent()
                 .width(width)
@@ -782,7 +782,7 @@ public class ClearScreenDemoUseCallerStack {
 
     static {
         /* Configure LWJGL stack. */
-        Configuration.STACK_SIZE.set(2);
+        Configuration.STACK_SIZE.set(3);
     }
 
     public static void main(String[] args) {

@@ -116,6 +116,7 @@ public class Transformer implements ClassFileTransformer {
         if (className == null
                 || className.startsWith("java/")
                 || className.startsWith("sun/")
+                || className.startsWith("jdk/internal/")
                 || className.startsWith("org/lwjgl/"))
             return null;
         for (String pack : packages)
