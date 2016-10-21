@@ -15,6 +15,7 @@
 	</licenses>
 	<properties>
 		<lwjgl.version>3.0.1-SNAPSHOT</lwjgl.version>
+		<asm.version>5.1</asm.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
@@ -115,7 +116,7 @@
 							<goal>shade</goal>
 						</goals>
 						<configuration>
-							<finalName>autostack</finalName>
+							<finalName>${project.artifactId}</finalName>
 							<minimizeJar>true</minimizeJar>
 							<transformers>
 								<transformer
@@ -151,17 +152,17 @@
 		<dependency>
 			<groupId>org.ow2.asm</groupId>
 			<artifactId>asm</artifactId>
-			<version>5.1</version>
+			<version>${asm.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.ow2.asm</groupId>
 			<artifactId>asm-commons</artifactId>
-			<version>5.1</version>
+			<version>${asm.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.ow2.asm</groupId>
 			<artifactId>asm-util</artifactId>
-			<version>5.1</version>
+			<version>${asm.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.lwjgl</groupId>
