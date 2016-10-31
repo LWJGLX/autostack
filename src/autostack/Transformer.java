@@ -151,6 +151,7 @@ public class Transformer implements ClassFileTransformer {
                                 owner.startsWith("org/lwjgl/") && (name.equals("mallocStack") ||name.equals("callocStack")) ||
                                 owner.equals(MEMORYSTACK) && (name.equals("stackGet") || name.equals("stackPop") || name.equals("stackPush") ||
                                                               name.startsWith("stackMalloc") || name.startsWith("stackCalloc") ||
+                                                              name.startsWith("nstackMalloc") || name.startsWith("nstackCalloc") ||
                                                               name.equals("stackUTF8") || name.equals("stackASCII") || name.equals("stackUTF16") ||
                                                               name.equals("stackFloats") || name.equals("stackInts") || name.equals("stackBytes") ||
                                                               name.equals("stackShorts") || name.equals("stackPointers") || name.equals("stackLongs")))) {
@@ -487,6 +488,19 @@ public class Transformer implements ClassFileTransformer {
                                 System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
                             mv.visitVarInsn(ALOAD, stackVarIndex);
                             mv.visitInsn(SWAP);
+                            mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
+                        } else if (owner.equals(MEMORYSTACK) && (name.startsWith("nstackMalloc") || name.startsWith("nstackCalloc"))) {
+                            String newName = "n" + name.substring(6, 7).toLowerCase() + name.substring(7);
+                            if (debugTransform)
+                                System.out.println("[autostack]     rewrite invocation of " + owner.replace('/', '.') + "." + name + " at line " + lastLine + " --> aload " + stackVarIndex + "; invokevirtual " + MEMORYSTACK.replace('/', '.') + "." + newName);
+                            mv.visitVarInsn(ALOAD, stackVarIndex);
+                            if ("(I)J".equals(desc)) {
+                                mv.visitInsn(SWAP);
+                            } else {
+                                // (II)J
+                                mv.visitInsn(DUP_X2);
+                                mv.visitInsn(POP);
+                            }
                             mv.visitMethodInsn(INVOKEVIRTUAL, MEMORYSTACK, newName, desc, itf);
                         } else if (owner.equals(MEMORYSTACK) && (name.equals("stackASCII") || name.equals("stackUTF8") || name.equals("stackUTF16"))) {
                             String newName = name.substring(5);
