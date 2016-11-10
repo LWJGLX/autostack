@@ -52,7 +52,7 @@
 				</os>
 			</activation>
 			<properties>
-				<platform>osx</platform>
+				<platform>macos</platform>
 			</properties>
 		</profile>
 	</profiles>
