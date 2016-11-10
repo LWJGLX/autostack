@@ -26,7 +26,7 @@ import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Agent {
+class Agent {
 
     private static boolean DEBUG_TRANSFORM = getBooleanProperty("autostack.DEBUG_TRANSFORM", false);
     private static boolean DEBUG_RUNTIME = getBooleanProperty("autostack.DEBUG_RUNTIME", false);

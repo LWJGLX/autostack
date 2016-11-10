@@ -43,7 +43,7 @@ import org.objectweb.asm.util.TraceClassVisitor;
 
 import static org.objectweb.asm.Opcodes.*;
 
-public class Transformer implements ClassFileTransformer {
+class Transformer implements ClassFileTransformer {
     private static final String MEMORYSTACK = "org/lwjgl/system/MemoryStack";
 
     private List<String> packages;

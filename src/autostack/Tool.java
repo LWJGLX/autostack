@@ -32,7 +32,7 @@ import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
-public class Tool {
+class Tool {
 
     private static boolean DEBUG_TRANSFORM = getBooleanProperty("autostack.DEBUG_TRANSFORM", false);
     private static boolean DEBUG_RUNTIME = getBooleanProperty("autostack.DEBUG_RUNTIME", false);
