@@ -20,7 +20,7 @@
  THE SOFTWARE.
 
  */
-package autostack;
+package org.lwjglx.autostack;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

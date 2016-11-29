@@ -20,7 +20,7 @@
  THE SOFTWARE.
 
  */
-package autostack;
+package org.lwjglx.autostack;
 
 import java.io.PrintWriter;
 import java.lang.instrument.ClassFileTransformer;
@@ -137,11 +137,11 @@ class Transformer implements ClassFileTransformer {
                     boolean mark, catches, notransform, nostackparam, forcestack;
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                        if ("Lautostack/NoTransform;".equals(desc))
+                        if ("Lorg/lwjglx/autostack/NoTransform;".equals(desc))
                             notransform = true;
-                        else if ("Lautostack/NoStackParam;".equals(desc))
+                        else if ("Lorg/lwjglx/autostack/NoStackParam;".equals(desc))
                             nostackparam = true;
-                        else if ("Lautostack/UseNewStack;".equals(desc))
+                        else if ("Lorg/lwjglx/autostack/UseNewStack;".equals(desc))
                         	forcestack = true;
                         return null;
                     }
@@ -265,17 +265,17 @@ class Transformer implements ClassFileTransformer {
             }
 
             public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                if ("Lautostack/UseCallerStack;".equals(desc)) {
+                if ("Lorg/lwjglx/autostack/UseCallerStack;".equals(desc)) {
                     if (debugTransform)
                         System.out.println("[autostack]   class declares to use caller stack for all methods, unless overridden by method");
                     classDefaultNewStack = false;
                     return null;
-                } else if ("Lautostack/UseNewStack;".equals(desc)) {
+                } else if ("Lorg/lwjglx/autostack/UseNewStack;".equals(desc)) {
                     if (debugTransform)
                         System.out.println("[autostack]   class declares to use new stack for all methods, unless overridden by method");
                     classDefaultNewStack = true;
                     return null;
-                } else if ("Lautostack/NoTransform;".equals(desc)) {
+                } else if ("Lorg/lwjglx/autostack/NoTransform;".equals(desc)) {
                 	if (debugTransform)
                         System.out.println("[autostack]   class declares to not transform any methods");
                 	classNoTransform = true;
@@ -371,23 +371,23 @@ class Transformer implements ClassFileTransformer {
                     }
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                        if ("Lautostack/UseCallerStack;".equals(desc)) {
+                        if ("Lorg/lwjglx/autostack/UseCallerStack;".equals(desc)) {
                             if (!notransform) {
                                 if (debugTransform)
                                     System.out.println("[autostack]     method declares to use caller stack");
                                 newStack = false;
                             }
                             return null;
-                        } else if ("Lautostack/UseNewStack;".equals(desc)) {
+                        } else if ("Lorg/lwjglx/autostack/UseNewStack;".equals(desc)) {
                             if (!notransform) {
                                 if (debugTransform)
                                     System.out.println("[autostack]     method declares to use new stack");
                                 newStack = true;
                             }
                             return null;
-                        } else if ("Lautostack/NoTransform;".equals(desc)) {
+                        } else if ("Lorg/lwjglx/autostack/NoTransform;".equals(desc)) {
                             return null;
-                        } else if ("Lautostack/NoStackParam;".equals(desc)) {
+                        } else if ("Lorg/lwjglx/autostack/NoStackParam;".equals(desc)) {
                             return null;
                         }
                         return mv.visitAnnotation(desc, visible);

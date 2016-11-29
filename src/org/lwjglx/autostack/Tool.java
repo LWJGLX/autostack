@@ -20,7 +20,7 @@
  THE SOFTWARE.
 
  */
-package autostack;
+package org.lwjglx.autostack;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;

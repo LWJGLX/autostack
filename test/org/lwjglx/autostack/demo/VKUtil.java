@@ -1,4 +1,4 @@
-package autostack.demo;
+package org.lwjglx.autostack.demo;
 
 import static org.lwjgl.vulkan.EXTDebugReport.*;       
 import static org.lwjgl.vulkan.KHRDisplaySwapchain.*;     

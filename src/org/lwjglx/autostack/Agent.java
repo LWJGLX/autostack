@@ -20,7 +20,7 @@
  THE SOFTWARE.
 
  */
-package autostack;
+package org.lwjglx.autostack;
 
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;

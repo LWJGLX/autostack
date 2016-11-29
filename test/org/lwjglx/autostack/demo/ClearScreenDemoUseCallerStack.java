@@ -2,14 +2,14 @@
  * Copyright LWJGL. All rights reserved.
  * License terms: http://lwjgl.org/license.php
  */
-package autostack.demo;
+package org.lwjglx.autostack.demo;
 
 import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.vulkan.EXTDebugReport.*;
 import static org.lwjgl.vulkan.KHRSwapchain.*;
 import static org.lwjgl.vulkan.KHRSurface.*;
 import static org.lwjgl.vulkan.VK10.*;
-import static autostack.demo.VKUtil.*;
+import static org.lwjglx.autostack.demo.VKUtil.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
 import static org.lwjgl.system.MemoryStack.*;
@@ -54,10 +54,9 @@ import org.lwjgl.vulkan.VkSurfaceCapabilitiesKHR;
 import org.lwjgl.vulkan.VkSurfaceFormatKHR;
 import org.lwjgl.vulkan.VkSwapchainCreateInfoKHR;
 import org.lwjgl.vulkan.VkViewport;
-
-import autostack.NoTransform;
-import autostack.UseCallerStack;
-import autostack.UseNewStack;
+import org.lwjglx.autostack.NoTransform;
+import org.lwjglx.autostack.UseCallerStack;
+import org.lwjglx.autostack.UseNewStack;
 
 /**
  * Renders a simple cornflower blue image on a GLFW window with Vulkan.
@@ -66,12 +65,13 @@ import autostack.UseNewStack;
  * <p>
  * Start the JVM with: -javaagent:target/autostack.jar
  * <p>
- * This class implicitly pushes/pops new stack frames for every method, unless overridden 
- * by annotating that method with {@link UseCallerStack}.
+ * This class declares to use the caller stack for every method. So no method will do a stack push/pop unless
+ * annotated with {@link UseNewStack}.
  * 
  * @author Kai Burjack
  */
-public class ClearScreenDemoUseNewStack {
+@UseCallerStack
+public class ClearScreenDemoUseCallerStack {
 
     private static final boolean validation = Boolean.parseBoolean(System.getProperty("vulkan.validation", "false"));
 
@@ -780,7 +780,7 @@ public class ClearScreenDemoUseNewStack {
 
     static {
         /* Configure LWJGL stack. */
-        Configuration.STACK_SIZE.set(2);
+        Configuration.STACK_SIZE.set(3);
     }
 
     public static void main(String[] args) {
