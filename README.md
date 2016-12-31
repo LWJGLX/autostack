@@ -54,7 +54,7 @@ Once the classes have been transformed using this offline tool, there is no depe
 
 I want to see what happens
 --------------------------
-If you want to see which methods will be transformed by the agent and what happens at runtime when the transformed methods execute, the following JVM system property parameters result in various information being logged to standard out:
+If you want to see which methods will be transformed by the agent and what happens at runtime when the transformed methods execute, the following JVM system properties result in various information being logged to standard out:
 - `-Dautostack.DEBUG_TRANSFORM`: Logs the methods and invocations within those methods that get transformed.
 - `-Dautostack.DEBUG_RUNTIME`: Logs whenever an automatic stack push/pop happens at runtime. This potentially results in a lot of logging at runtime!
 - `-Dautostack.TRACE`: Logs the bytecode of each transformed class and method.
