@@ -21,7 +21,6 @@ import java.nio.LongBuffer;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFWKeyCallback;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
-import org.lwjgl.system.Configuration;
 import org.lwjgl.vulkan.VkApplicationInfo;
 import org.lwjgl.vulkan.VkAttachmentDescription;
 import org.lwjgl.vulkan.VkAttachmentReference;
@@ -777,11 +776,6 @@ public class ClearScreenDemoUseCallerStack {
     private static Swapchain swapchain;
     private static long[] framebuffers;
     private static VkCommandBuffer[] renderCommandBuffers;
-
-    static {
-        /* Configure LWJGL stack. */
-        Configuration.STACK_SIZE.set(3);
-    }
 
     public static void main(String[] args) {
         if (!glfwInit()) {
