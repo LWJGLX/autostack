@@ -8,7 +8,25 @@ This means, with Autostack you:
 - do not need to care about the optimal uses of MemoryStack.push() and MemoryStack.pop()
 - do not need to care about performance issues when performing repeated thread-local lookups on the MemoryStack.stackGet()
 
-For an example see the Vulkan [ClearScreenDemoUseNewStack](https://github.com/LWJGLX/autostack/blob/master/test/org/lwjglx/autostack/demo/ClearScreenDemoUseNewStack.java).
+Autostack will automatically convert this code:
+```Java
+public static void someMethod() {
+  IntBuffer someInts = stackMallocInt(16);
+  PointerBuffer somePtrs = stackMallocPointer(32);
+  SomeStruct someStruct = SomeStruct.callocStack();
+}
+```
+
+into the equivalent of this:
+```Java
+public static void someMethod() {
+  try (MemoryStack frame = MemoryStack.stackPush()) {
+    IntBuffer someInts = frame.mallocInt(16);
+    PointerBuffer somePtrs = frame.mallocPointer(32);
+    SomeStruct someStruct = SomeStruct.callocStack(frame);
+  }
+}
+```
 
 How to use it?
 --------------
