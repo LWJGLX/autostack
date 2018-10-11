@@ -434,7 +434,7 @@ class Transformer implements ClassFileTransformer {
 
                     public void visitLocalVariable(String name, String desc, String signature, Label start, Label end, int index) {
                         if (notransform) {
-                            mv.visitLocalVariable(className, desc, signature, start, end, index);
+                            mv.visitLocalVariable(name, desc, signature, start, end, index);
                             return;
                         }
                         if (index >= firstAdditionalLocal)
