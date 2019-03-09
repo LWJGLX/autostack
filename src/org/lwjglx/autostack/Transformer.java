@@ -127,13 +127,13 @@ class Transformer implements ClassFileTransformer {
         // Scan all methods that need auto-stack
         if (debugTransform)
             System.out.println("[autostack] scanning methods in class: " + className.replace('/', '.'));
-        cr.accept(new ClassVisitor(ASM6) {
+        cr.accept(new ClassVisitor(ASM7) {
             public MethodVisitor visitMethod(final int access, final String methodName, final String methodDesc, String signature, String[] exceptions) {
                 if ((access & (ACC_NATIVE | ACC_ABSTRACT)) != 0) {
                     // Don't try to analyze native or abstract methods.
                     return null;
                 }
-                MethodVisitor mv = new MethodVisitor(ASM6) {
+                MethodVisitor mv = new MethodVisitor(ASM7) {
                     boolean mark, catches, notransform, nostackparam, forcestack;
 
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
@@ -192,7 +192,7 @@ class Transformer implements ClassFileTransformer {
         if (debugTransform)
             System.out.println("[autostack] transforming methods in class: " + className.replace('/', '.'));
         ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
-        cr.accept(new ClassVisitor(ASM6, cw) {
+        cr.accept(new ClassVisitor(ASM7, cw) {
             boolean classDefaultNewStack = defaultNewStack;
             boolean classNoTransform;
 
@@ -334,7 +334,7 @@ class Transformer implements ClassFileTransformer {
                 }
                 if (catches)
                     mv = new TryCatchBlockSorter(mv, access, name, desc, signature, exceptions);
-                mv = new MethodVisitor(ASM6, mv) {
+                mv = new MethodVisitor(ASM7, mv) {
                     Label tryLabel = new Label();
                     Label finallyLabel = new Label();
                     int lastLine = 0;
